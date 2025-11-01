@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { FaFacebookF, FaInstagram, FaTwitter, FaLinkedinIn } from "react-icons/fa";
+import logoUrl from "../../assets/logo/prolific-logo.png";
 
 const Footer = () => {
   const quickLinks = [
@@ -32,7 +33,7 @@ const Footer = () => {
         {/* Brand */}
         <div>
           <img 
-            src="/src/assets/logo/prolific-logo.png" 
+            src={logoUrl} 
             alt="Prolific Healing Herbs" 
             className="h-16 w-auto object-contain mb-4 brightness-200"
           />

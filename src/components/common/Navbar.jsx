@@ -5,6 +5,7 @@ import { FaUserCircle } from "react-icons/fa";
 import { IoMdMenu, IoMdClose } from "react-icons/io";
 import { useAuth } from "../../hooks/useAuth";
 import { useCart } from "../../context/CartContext";
+import logoUrl from "../../assets/logo/prolific-logo.png";
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -60,7 +61,7 @@ const Navbar = () => {
         {/* Logo */}
         <Link to="/" className="flex items-center">
           <img 
-            src="/src/assets/logo/prolific-logo.png" 
+            src={logoUrl} 
             alt="Prolific Healing Herbs" 
             className="h-12 w-auto object-contain"
           />
