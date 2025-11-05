@@ -104,7 +104,8 @@ export const createProduct = async (productData) => {
     } catch (error) {
         return {
             success: false,
-            message: error.response?.data?.message || 'Failed to create product'
+            message: error.response?.data?.message || 'Failed to create product',
+            errors: error.response?.data?.errors // Include validation errors if available
         };
     }
 };
@@ -119,7 +120,8 @@ export const updateProduct = async (productId, productData) => {
     } catch (error) {
         return {
             success: false,
-            message: error.response?.data?.message || 'Failed to update product'
+            message: error.response?.data?.message || 'Failed to update product',
+            errors: error.response?.data?.errors // Include validation errors if available
         };
     }
 };

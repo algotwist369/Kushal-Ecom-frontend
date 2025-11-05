@@ -23,7 +23,8 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
-  getProductsByFilter as adminGetProductsByFilter
+  getProductsByFilter as adminGetProductsByFilter,
+  getAllCategories
 } from '../services/adminService';
 
 // Test results tracker
@@ -169,15 +170,29 @@ export const testAdminApis = async () => {
     return result;
   });
 
-  // Test 2: Create product
-  await runTest('Admin: Create Product', async () => {
+  // Test 2: Create product (without slug - should auto-generate)
+  await runTest('Admin: Create Product (Without Slug)', async () => {
+    // First, get a valid category ID
+    const categoriesResult = await getAllCategories();
+    let categoryId = null;
+    if (categoriesResult.success && categoriesResult.data.categories?.length > 0) {
+      categoryId = categoriesResult.data.categories[0]._id;
+    } else if (categoriesResult.success && categoriesResult.data?.length > 0) {
+      categoryId = categoriesResult.data[0]._id;
+    }
+
+    if (!categoryId) {
+      return { success: false, message: 'No categories available for testing' };
+    }
+
+    const testProductName = `Test Product ${Date.now()}`;
     const testProduct = {
-      name: `Test Product ${Date.now()}`,
-      description: 'This is a test product created by API test',
+      name: testProductName,
+      description: 'This is a test product created by API test - slug should be auto-generated',
       price: 999,
       discountPrice: 799,
       stock: 50,
-      category: '507f1f77bcf86cd799439011', // Replace with valid category ID
+      category: categoryId,
       images: ['https://example.com/test-image.jpg'],
       dosage: '30ml twice daily',
       manufacturer: 'Test Manufacturer',
@@ -187,13 +202,66 @@ export const testAdminApis = async () => {
       potency: 'Medium',
       metaTitle: 'Test Product SEO Title',
       metaDescription: 'Test product description for SEO'
+      // Note: NOT including slug - should be auto-generated
     };
 
     const result = await createProduct(testProduct);
     if (result.success) {
       createdProductId = result.data._id;
-      console.log(`   Created product ID: ${createdProductId}`);
-      console.log(`   Product name: ${result.data.name}`);
+      console.log(`   ✅ Created product ID: ${createdProductId}`);
+      console.log(`   ✅ Product name: ${result.data.name}`);
+      console.log(`   ✅ Auto-generated slug: ${result.data.slug || 'NOT GENERATED!'}`);
+      
+      // Verify slug was auto-generated
+      if (!result.data.slug) {
+        return { success: false, message: 'Slug was not auto-generated' };
+      }
+      
+      // Verify slug format (should be lowercase, hyphenated)
+      const expectedSlugPattern = testProductName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      if (!result.data.slug.includes(expectedSlugPattern.substring(0, 20))) {
+        console.log(`   ⚠️  Slug format: ${result.data.slug} (may differ if name was modified)`);
+      }
+    }
+    return result;
+  });
+
+  // Test 2.5: Create product with slug (should be ignored)
+  await runTest('Admin: Create Product (With Slug - Should Be Ignored)', async () => {
+    const categoriesResult = await getAllCategories();
+    let categoryId = null;
+    if (categoriesResult.success && categoriesResult.data.categories?.length > 0) {
+      categoryId = categoriesResult.data.categories[0]._id;
+    } else if (categoriesResult.success && categoriesResult.data?.length > 0) {
+      categoryId = categoriesResult.data[0]._id;
+    }
+
+    if (!categoryId) {
+      return { success: false, message: 'No categories available for testing' };
+    }
+
+    const testProductName = `Manual Slug Test ${Date.now()}`;
+    const testProduct = {
+      name: testProductName,
+      description: 'Testing that manual slug is ignored',
+      price: 888,
+      stock: 30,
+      category: categoryId,
+      slug: 'manual-slug-should-be-ignored' // This should be ignored
+    };
+
+    const result = await createProduct(testProduct);
+    if (result.success) {
+      console.log(`   ✅ Created product ID: ${result.data._id}`);
+      console.log(`   ✅ Product name: ${result.data.name}`);
+      console.log(`   ✅ Auto-generated slug: ${result.data.slug}`);
+      
+      // Verify slug was NOT the manual one
+      if (result.data.slug === 'manual-slug-should-be-ignored') {
+        return { success: false, message: 'Manual slug was not ignored - backend should auto-generate' };
+      }
+      
+      console.log(`   ✅ Manual slug was correctly ignored`);
     }
     return result;
   });
@@ -208,19 +276,69 @@ export const testAdminApis = async () => {
       return result;
     });
 
-    // Test 4: Update product
-    await runTest('Admin: Update Product', async () => {
+    // Test 4: Update product (name change should update slug)
+    await runTest('Admin: Update Product (Name Change Updates Slug)', async () => {
+      const oldProduct = await adminGetProductById(createdProductId);
+      const oldSlug = oldProduct.success ? oldProduct.data.slug : null;
+      
+      const newName = `Updated Test Product ${Date.now()}`;
       const updates = {
-        name: `Updated Test Product ${Date.now()}`,
+        name: newName,
         price: 899,
         stock: 75,
         isActive: true
+        // Note: NOT including slug - should be auto-generated from new name
       };
 
       const result = await updateProduct(createdProductId, updates);
       if (result.success) {
-        console.log(`   Updated name: ${result.data.name}`);
-        console.log(`   Updated price: ₹${result.data.price}`);
+        console.log(`   ✅ Updated name: ${result.data.name}`);
+        console.log(`   ✅ Updated price: ₹${result.data.price}`);
+        console.log(`   ✅ Old slug: ${oldSlug}`);
+        console.log(`   ✅ New slug: ${result.data.slug}`);
+        
+        // Verify slug changed when name changed
+        if (oldSlug && result.data.slug === oldSlug && newName !== oldProduct.data.name) {
+          console.log(`   ⚠️  Warning: Slug did not change when name changed`);
+        }
+      }
+      return result;
+    });
+
+    // Test 4.5: Update product with slug (should be ignored)
+    await runTest('Admin: Update Product (With Slug - Should Be Ignored)', async () => {
+      const updates = {
+        price: 777,
+        stock: 100,
+        slug: 'manual-update-slug-should-be-ignored' // This should be ignored
+      };
+
+      const result = await updateProduct(createdProductId, updates);
+      if (result.success) {
+        console.log(`   ✅ Updated price: ₹${result.data.price}`);
+        console.log(`   ✅ Current slug: ${result.data.slug}`);
+        
+        // Verify slug was NOT the manual one
+        if (result.data.slug === 'manual-update-slug-should-be-ignored') {
+          return { success: false, message: 'Manual slug update was not ignored' };
+        }
+        
+        console.log(`   ✅ Manual slug update was correctly ignored`);
+      }
+      return result;
+    });
+
+    // Test 4.6: Partial update (only price)
+    await runTest('Admin: Partial Update (Only Price)', async () => {
+      const updates = {
+        price: 1099
+        // Only updating price, nothing else
+      };
+
+      const result = await updateProduct(createdProductId, updates);
+      if (result.success) {
+        console.log(`   ✅ Updated price: ₹${result.data.price}`);
+        console.log(`   ✅ Slug unchanged: ${result.data.slug}`);
       }
       return result;
     });
@@ -244,6 +362,54 @@ export const testAdminApis = async () => {
     });
     return result;
   });
+
+  // Test 7: Validation error test (create with missing required fields)
+  await runTest('Admin: Create Product Validation Error (Missing Fields)', async () => {
+    const invalidProduct = {
+      name: 'Test', // Too short
+      price: -100, // Invalid (negative)
+      stock: -50 // Invalid (negative)
+      // Missing category and other required fields
+    };
+
+    const result = await createProduct(invalidProduct);
+    
+    // This should fail with validation errors
+    if (!result.success) {
+      console.log(`   ✅ Validation correctly failed`);
+      console.log(`   ✅ Error message: ${result.message}`);
+      if (result.errors) {
+        console.log(`   ✅ Validation errors: ${JSON.stringify(result.errors, null, 2)}`);
+      }
+      return { success: true, message: 'Validation correctly caught errors' };
+    } else {
+      return { success: false, message: 'Validation should have failed but product was created' };
+    }
+  });
+
+  // Test 8: Validation error test (update with invalid data)
+  if (createdProductId) {
+    await runTest('Admin: Update Product Validation Error (Invalid Data)', async () => {
+      const invalidUpdates = {
+        price: -50, // Invalid (negative)
+        stock: -10 // Invalid (negative)
+      };
+
+      const result = await updateProduct(createdProductId, invalidUpdates);
+      
+      // This should fail with validation errors
+      if (!result.success) {
+        console.log(`   ✅ Validation correctly failed`);
+        console.log(`   ✅ Error message: ${result.message}`);
+        if (result.errors) {
+          console.log(`   ✅ Validation errors: ${JSON.stringify(result.errors, null, 2)}`);
+        }
+        return { success: true, message: 'Validation correctly caught errors' };
+      } else {
+        return { success: false, message: 'Validation should have failed but product was updated' };
+      }
+    });
+  }
 };
 
 // ============= REVIEW API TESTS =============

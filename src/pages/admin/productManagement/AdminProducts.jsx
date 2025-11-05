@@ -68,16 +68,18 @@ const AdminProducts = () => {
                 setTotalProducts(result.data.total || 0);
             } else {
                 console.error('Error fetching products:', result.message);
-                alert(result.message);
+                toast.error(result.message || 'Failed to fetch products');
             }
         } catch (error) {
             console.error('Error fetching products:', error);
+            toast.error('Failed to fetch products. Please try again.');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     const handleDeleteProduct = async (productId, productName) => {
-        if (window.confirm(`Are you sure you want to delete product: ${productName}?`)) {
+        if (window.confirm(`Are you sure you want to delete product: ${productName}?\n\nThis action cannot be undone.`)) {
             const deletePromise = deleteProduct(productId);
             
             toast.promise(
@@ -85,13 +87,17 @@ const AdminProducts = () => {
                 {
                     loading: 'Deleting product...',
                     success: 'Product deleted successfully!',
-                    error: 'Failed to delete product',
+                    error: (err) => err?.message || 'Failed to delete product',
                 }
             );
 
             const result = await deletePromise;
             if (result.success) {
+                // Refresh the product list
                 fetchProducts();
+            } else {
+                // Error is already shown by toast.promise, but we can add additional handling if needed
+                console.error('Delete failed:', result.message);
             }
         }
     };

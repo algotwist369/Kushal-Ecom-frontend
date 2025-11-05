@@ -184,6 +184,7 @@ const AdminProductCreate = () => {
 
         try {
             // Clean up data before submission
+            // Note: slug is auto-generated from name on the backend, so we don't include it here
             const submitData = {
                 ...formData,
                 price: Number(formData.price),
@@ -233,10 +234,23 @@ const AdminProductCreate = () => {
             if (result.success) {
                 setTimeout(() => navigate('/admin/products'), 1000);
             } else {
-                setError(result.message);
+                // Handle validation errors from backend
+                const errorMessage = result.message || 'Failed to create product';
+                setError(errorMessage);
+                // If it's a validation error with details, show them
+                if (result.errors && Array.isArray(result.errors)) {
+                    const errorDetails = result.errors.map(err => `${err.msg || err.message}`).join(', ');
+                    setError(`${errorMessage}: ${errorDetails}`);
+                }
             }
         } catch (err) {
-            setError('Failed to create product. Please try again.');
+            const errorMessage = err.response?.data?.message || err.message || 'Failed to create product. Please try again.';
+            setError(errorMessage);
+            // Handle validation errors
+            if (err.response?.data?.errors && Array.isArray(err.response.data.errors)) {
+                const errorDetails = err.response.data.errors.map(err => `${err.msg || err.message}`).join(', ');
+                setError(`${errorMessage}: ${errorDetails}`);
+            }
         } finally {
             setLoading(false);
         }

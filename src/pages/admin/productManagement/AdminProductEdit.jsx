@@ -254,9 +254,10 @@ const AdminProductEdit = () => {
         setSaving(true);
 
         try {
-            // Clean up data before submission
+            // Clean up data before submission - exclude slug (it's auto-generated from name)
+            const { slug, ...formDataWithoutSlug } = formData;
             const submitData = {
-                ...formData,
+                ...formDataWithoutSlug,
                 price: Number(formData.price),
                 discountPrice: formData.discountPrice ? Number(formData.discountPrice) : undefined,
                 stock: Number(formData.stock),
@@ -304,10 +305,23 @@ const AdminProductEdit = () => {
             if (result.success) {
                 setTimeout(() => navigate('/admin/products'), 1000);
             } else {
-                setError(result.message);
+                // Handle validation errors from backend
+                const errorMessage = result.message || 'Failed to update product';
+                setError(errorMessage);
+                // If it's a validation error with details, show them
+                if (result.errors && Array.isArray(result.errors)) {
+                    const errorDetails = result.errors.map(err => `${err.msg || err.message}`).join(', ');
+                    setError(`${errorMessage}: ${errorDetails}`);
+                }
             }
         } catch (err) {
-            setError('Failed to update product. Please try again.');
+            const errorMessage = err.response?.data?.message || err.message || 'Failed to update product. Please try again.';
+            setError(errorMessage);
+            // Handle validation errors
+            if (err.response?.data?.errors && Array.isArray(err.response.data.errors)) {
+                const errorDetails = err.response.data.errors.map(err => `${err.msg || err.message}`).join(', ');
+                setError(`${errorMessage}: ${errorDetails}`);
+            }
         } finally {
             setSaving(false);
         }
