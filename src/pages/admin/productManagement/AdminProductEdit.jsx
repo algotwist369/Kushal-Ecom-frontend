@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { getProductById, updateProduct, getAllCategories } from '../../../services/adminService';
@@ -12,6 +12,11 @@ const AdminProductEdit = () => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const [currentStep, setCurrentStep] = useState(0);
+    
+    // Refs to prevent multiple simultaneous requests
+    const fetchingRef = useRef(false);
+    const abortControllerRef = useRef(null);
     
     const [formData, setFormData] = useState({
         // Basic fields
@@ -26,16 +31,16 @@ const AdminProductEdit = () => {
         isActive: true,
         
         // Ayurvedic-specific fields
-        ingredients: [],
-        benefits: [],
+        ingredients: [{ image: '', name: '', description: '' }],
+        benefits: [{ image: '', name: '', description: '' }],
         dosage: '',
-        contraindications: [],
+        contraindications: [{ image: '', name: '', description: '' }],
         shelfLife: '',
         storageInstructions: '',
         manufacturer: '',
         batchNumber: '',
         expiryDate: '',
-        certification: [],
+        certification: [{ image: '', name: '', description: '' }],
         origin: '',
         processingMethod: '',
         potency: '',
@@ -44,10 +49,10 @@ const AdminProductEdit = () => {
         gender: [],
         season: [],
         timeOfDay: [],
-        faq: [],
-        howToUse: [],
-        howToStore: [],
-        howToConsume: [],
+        faq: [{ question: '', answer: '' }],
+        howToUse: [{ image: '', name: '', description: '' }],
+        howToStore: [{ image: '', name: '', description: '' }],
+        howToConsume: [{ image: '', name: '', description: '' }],
         
         // Pack & Combo Options
         packOptions: [],
@@ -67,18 +72,31 @@ const AdminProductEdit = () => {
         keywords: []
     });
 
-    useEffect(() => {
-        fetchData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id]);
+    const fetchData = useCallback(async () => {
+        // Prevent multiple simultaneous requests
+        if (fetchingRef.current) {
+            return;
+        }
 
-    const fetchData = async () => {
+        // Abort previous request if still pending
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+
+        fetchingRef.current = true;
         setLoading(true);
+        setError('');
+
         try {
             const [productResult, categoriesResult] = await Promise.all([
                 getProductById(id),
                 getAllCategories()
             ]);
+
+            // Check if request was aborted
+            if (abortControllerRef.current?.signal.aborted) {
+                return;
+            }
 
             if (productResult.success) {
                 const product = productResult.data;
@@ -93,28 +111,28 @@ const AdminProductEdit = () => {
                     attributes: product.attributes || {},
                     isActive: product.isActive !== undefined ? product.isActive : true,
                     
-                    ingredients: product.ingredients?.length ? product.ingredients : [{ image: '', name: '', description: '' }],
-                    benefits: product.benefits?.length ? product.benefits : [{ image: '', name: '', description: '' }],
+                    ingredients: Array.isArray(product.ingredients) && product.ingredients.length > 0 ? product.ingredients : [{ image: '', name: '', description: '' }],
+                    benefits: Array.isArray(product.benefits) && product.benefits.length > 0 ? product.benefits : [{ image: '', name: '', description: '' }],
                     dosage: product.dosage || '',
-                    contraindications: product.contraindications?.length ? product.contraindications : [{ image: '', name: '', description: '' }],
+                    contraindications: Array.isArray(product.contraindications) && product.contraindications.length > 0 ? product.contraindications : [{ image: '', name: '', description: '' }],
                     shelfLife: product.shelfLife || '',
                     storageInstructions: product.storageInstructions || '',
                     manufacturer: product.manufacturer || '',
                     batchNumber: product.batchNumber || '',
                     expiryDate: product.expiryDate ? product.expiryDate.split('T')[0] : '',
-                    certification: product.certification?.length ? product.certification : [{ image: '', name: '', description: '' }],
+                    certification: Array.isArray(product.certification) && product.certification.length > 0 ? product.certification : [{ image: '', name: '', description: '' }],
                     origin: product.origin || '',
                     processingMethod: product.processingMethod || '',
                     potency: product.potency || '',
                     formulation: product.formulation || '',
-                    ageGroup: product.ageGroup || [],
-                    gender: product.gender || [],
-                    season: product.season || [],
-                    timeOfDay: product.timeOfDay || [],
-                    faq: product.faq?.length ? product.faq : [{ question: '', answer: '' }],
-                    howToUse: product.howToUse?.length ? product.howToUse : [{ image: '', name: '', description: '' }],
-                    howToStore: product.howToStore?.length ? product.howToStore : [{ image: '', name: '', description: '' }],
-                    howToConsume: product.howToConsume?.length ? product.howToConsume : [{ image: '', name: '', description: '' }],
+                    ageGroup: Array.isArray(product.ageGroup) ? product.ageGroup : [],
+                    gender: Array.isArray(product.gender) ? product.gender : (product.gender ? [product.gender] : []),
+                    season: Array.isArray(product.season) ? product.season : [],
+                    timeOfDay: Array.isArray(product.timeOfDay) ? product.timeOfDay : [],
+                    faq: Array.isArray(product.faq) && product.faq.length > 0 ? product.faq : [{ question: '', answer: '' }],
+                    howToUse: Array.isArray(product.howToUse) && product.howToUse.length > 0 ? product.howToUse : [{ image: '', name: '', description: '' }],
+                    howToStore: Array.isArray(product.howToStore) && product.howToStore.length > 0 ? product.howToStore : [{ image: '', name: '', description: '' }],
+                    howToConsume: Array.isArray(product.howToConsume) && product.howToConsume.length > 0 ? product.howToConsume : [{ image: '', name: '', description: '' }],
                     
                     // Pack & Combo Options
                     packOptions: product.packOptions?.length ? product.packOptions : [{ packSize: '', packPrice: '', savingsPercent: '', label: '', image: '' }],
@@ -130,7 +148,7 @@ const AdminProductEdit = () => {
                     
                     metaTitle: product.metaTitle || '',
                     metaDescription: product.metaDescription || '',
-                    keywords: product.keywords?.length ? product.keywords : ['']
+                    keywords: Array.isArray(product.keywords) && product.keywords.length > 0 ? product.keywords : ['']
                 });
             } else {
                 setError(productResult.message);
@@ -145,59 +163,75 @@ const AdminProductEdit = () => {
                 console.error('Failed to fetch categories:', categoriesResult.message);
             }
         } catch (err) {
+            // Don't show error if request was aborted
+            if (err.name === 'AbortError' || abortControllerRef.current?.signal.aborted) {
+                return;
+            }
             setError('Failed to fetch product details');
             setCategories([]);
         } finally {
+            fetchingRef.current = false;
             setLoading(false);
         }
-    };
+    }, [id]);
 
-    const handleChange = (e) => {
+    useEffect(() => {
+        fetchData();
+        
+        // Cleanup function to abort request on unmount
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
+    }, [fetchData]);
+
+    const handleChange = useCallback((e) => {
         const { name, value, type, checked } = e.target;
         setFormData(prev => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value
         }));
-    };
+    }, []);
 
-    const handleArrayChange = (field, index, value) => {
+    const handleArrayChange = useCallback((field, index, value) => {
         setFormData(prev => ({
             ...prev,
             [field]: prev[field].map((item, i) => i === index ? value : item)
         }));
-    };
+    }, []);
 
-    const handleObjectArrayChange = (field, index, key, value) => {
+    const handleObjectArrayChange = useCallback((field, index, key, value) => {
         setFormData(prev => ({
             ...prev,
             [field]: prev[field].map((item, i) => 
                 i === index ? { ...item, [key]: value } : item
             )
         }));
-    };
+    }, []);
 
-    const addArrayItem = (field, defaultValue = '') => {
+    const addArrayItem = useCallback((field, defaultValue = '') => {
         setFormData(prev => ({
             ...prev,
             [field]: [...prev[field], defaultValue]
         }));
-    };
+    }, []);
 
-    const addObjectArrayItem = (field, defaultValue) => {
+    const addObjectArrayItem = useCallback((field, defaultValue) => {
         setFormData(prev => ({
             ...prev,
             [field]: [...prev[field], defaultValue]
         }));
-    };
+    }, []);
 
-    const handlePackOptionImageUpload = async (packIndex, file) => {
+    const handlePackOptionImageUpload = useCallback(async (packIndex, file) => {
         if (!file) return;
         
         try {
-            const formData = new FormData();
-            formData.append('packOptionImages', file);
+            const uploadFormData = new FormData();
+            uploadFormData.append('packOptionImages', file);
             
-            const response = await api.post('/upload/products/pack-options', formData, {
+            const response = await api.post('/upload/products/pack-options', uploadFormData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             
@@ -209,25 +243,25 @@ const AdminProductEdit = () => {
             console.error('Error uploading pack option image:', error);
             toast.error('Failed to upload pack option image');
         }
-    };
+    }, [handleObjectArrayChange]);
 
-    const removeArrayItem = (field, index) => {
+    const removeArrayItem = useCallback((field, index) => {
         setFormData(prev => ({
             ...prev,
             [field]: prev[field].filter((_, i) => i !== index)
         }));
-    };
+    }, []);
 
-    const handleMultiSelect = (field, value) => {
+    const handleMultiSelect = useCallback((field, value) => {
         setFormData(prev => ({
             ...prev,
             [field]: prev[field].includes(value)
                 ? prev[field].filter(v => v !== value)
                 : [...prev[field], value]
         }));
-    };
+    }, []);
 
-    const handleAttributeChange = (key, value) => {
+    const handleAttributeChange = useCallback((key, value) => {
         setFormData(prev => ({
             ...prev,
             attributes: {
@@ -235,9 +269,9 @@ const AdminProductEdit = () => {
                 [key]: value
             }
         }));
-    };
+    }, []);
 
-    const removeAttribute = (key) => {
+    const removeAttribute = useCallback((key) => {
         setFormData(prev => {
             const newAttributes = { ...prev.attributes };
             delete newAttributes[key];
@@ -246,48 +280,66 @@ const AdminProductEdit = () => {
                 attributes: newAttributes
             };
         });
-    };
+    }, []);
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
         setError('');
         setSaving(true);
 
         try {
-            // Clean up data before submission - exclude slug (it's auto-generated from name)
-            const { slug, ...formDataWithoutSlug } = formData;
-            const submitData = {
-                ...formDataWithoutSlug,
-                price: Number(formData.price),
-                discountPrice: formData.discountPrice ? Number(formData.discountPrice) : undefined,
-                stock: Number(formData.stock),
-                images: formData.images.filter(img => img.trim() !== ''),
-                keywords: formData.keywords.filter(k => k && k.trim() !== ''),
-                ingredients: formData.ingredients.filter(i => i.name || i.description),
-                benefits: formData.benefits.filter(b => b.name || b.description),
-                contraindications: formData.contraindications.filter(c => c.name || c.description),
-                certification: formData.certification.filter(c => c.name || c.description),
-                howToUse: formData.howToUse.filter(h => h.name || h.description),
-                howToStore: formData.howToStore.filter(h => h.name || h.description),
-                howToConsume: formData.howToConsume.filter(h => h.name || h.description),
-                faq: formData.faq.filter(f => f.question && f.answer),
-                packOptions: formData.packOptions.filter(p => p.packSize && p.packPrice).map(p => ({
-                    ...p,
-                    packSize: Number(p.packSize),
-                    packPrice: Number(p.packPrice),
-                    savingsPercent: p.savingsPercent ? Number(p.savingsPercent) : undefined
-                })),
-                freeProducts: formData.freeProducts.filter(f => f.product && f.minQuantity && f.quantity).map(f => ({
-                    product: f.product,
-                    minQuantity: Number(f.minQuantity),
-                    quantity: Number(f.quantity)
-                })),
-                bundleWith: formData.bundleWith.filter(b => b.product && b.bundlePrice).map(b => ({
-                    product: b.product,
-                    bundlePrice: Number(b.bundlePrice),
-                    savingsAmount: b.savingsAmount ? Number(b.savingsAmount) : undefined
-                }))
-            };
+            // Get latest formData using functional update pattern
+            let submitData;
+            setFormData(prev => {
+                // Clean up data before submission - exclude slug (it's auto-generated from name)
+                const { slug, ...formDataWithoutSlug } = prev;
+                submitData = {
+                    ...formDataWithoutSlug,
+                    price: Number(prev.price),
+                    discountPrice: prev.discountPrice ? Number(prev.discountPrice) : undefined,
+                    stock: Number(prev.stock),
+                    images: Array.isArray(prev.images) ? prev.images.filter(img => img && img.trim() !== '') : [],
+                    keywords: Array.isArray(prev.keywords) ? prev.keywords.filter(k => k && k.trim() !== '') : [],
+                    // Object arrays - send as-is after filtering empty objects (always send array)
+                    ingredients: Array.isArray(prev.ingredients) ? prev.ingredients.filter(item => item && (item.name || item.image || item.description)) : [],
+                    benefits: Array.isArray(prev.benefits) ? prev.benefits.filter(item => item && (item.name || item.image || item.description)) : [],
+                    contraindications: Array.isArray(prev.contraindications) ? prev.contraindications.filter(item => item && (item.name || item.image || item.description)) : [],
+                    certification: Array.isArray(prev.certification) ? prev.certification.filter(item => item && (item.name || item.image || item.description)) : [],
+                    howToUse: Array.isArray(prev.howToUse) ? prev.howToUse.filter(item => item && (item.name || item.image || item.description)) : [],
+                    howToStore: Array.isArray(prev.howToStore) ? prev.howToStore.filter(item => item && (item.name || item.image || item.description)) : [],
+                    howToConsume: Array.isArray(prev.howToConsume) ? prev.howToConsume.filter(item => item && (item.name || item.image || item.description)) : [],
+                    // String fields - send as strings (empty string is valid)
+                    dosage: prev.dosage?.trim() || '',
+                    shelfLife: prev.shelfLife?.trim() || '',
+                    storageInstructions: prev.storageInstructions?.trim() || '',
+                    formulation: prev.formulation?.trim() || '',
+                    metaTitle: prev.metaTitle?.trim() || '',
+                    // Array fields - send empty arrays if no values (controller handles empty arrays)
+                    ageGroup: prev.ageGroup,
+                    gender: prev.gender,
+                    season: prev.season,
+                    timeOfDay: prev.timeOfDay,
+                    faq: Array.isArray(prev.faq) ? prev.faq.filter(f => f && f.question && f.answer) : [],
+                    packOptions: Array.isArray(prev.packOptions) ? prev.packOptions.filter(p => p && p.packSize && p.packPrice).map(p => ({
+                        packSize: Number(p.packSize),
+                        packPrice: Number(p.packPrice),
+                        savingsPercent: p.savingsPercent ? Number(p.savingsPercent) : undefined,
+                        label: p.label?.trim() || undefined,
+                        image: p.image?.trim() || undefined
+                    })) : [],
+                    freeProducts: Array.isArray(prev.freeProducts) ? prev.freeProducts.filter(f => f && f.product && f.minQuantity && f.quantity).map(f => ({
+                        product: f.product,
+                        minQuantity: Number(f.minQuantity),
+                        quantity: Number(f.quantity)
+                    })) : [],
+                    bundleWith: Array.isArray(prev.bundleWith) ? prev.bundleWith.filter(b => b && b.product && b.bundlePrice).map(b => ({
+                        product: b.product,
+                        bundlePrice: Number(b.bundlePrice),
+                        savingsAmount: b.savingsAmount ? Number(b.savingsAmount) : undefined
+                    })) : []
+                };
+                return prev; // Return unchanged state
+            });
 
             const updatePromise = updateProduct(id, submitData);
             
@@ -325,7 +377,33 @@ const AdminProductEdit = () => {
         } finally {
             setSaving(false);
         }
-    };
+    }, [id, navigate]);
+
+    const goToStep = useCallback((step) => {
+        setCurrentStep(step);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
+
+    // Memoize navigation sections
+    const navigationSections = useMemo(() => [
+        { id: 'basic', title: 'Basic', icon: '📝' },
+        { id: 'ayurvedic', title: 'Ayurvedic', icon: '🌿' },
+        { id: 'usage', title: 'Usage', icon: '📋' },
+        { id: 'faq', title: 'FAQ', icon: '❓' },
+        { id: 'pack', title: 'Pack & Combo', icon: '📦' },
+        { id: 'shipping', title: 'Shipping', icon: '🚚' },
+        { id: 'seo', title: 'SEO', icon: '🔍' }
+    ], []);
+
+    // Memoize category options
+    const categoryOptions = useMemo(() => 
+        Array.isArray(categories) ? categories : []
+    , [categories]);
+
+    // Memoize navigation handlers
+    const handleNavigateBack = useCallback(() => {
+        navigate('/admin/products');
+    }, [navigate]);
 
     if (loading) {
         return (
@@ -336,32 +414,79 @@ const AdminProductEdit = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-5xl mx-auto">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-6 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-6xl mx-auto">
                 <BackButton to="/admin/products" label="Back to Products" />
                 
                 {/* Header */}
-                <div className="mb-8">
-                    <h1 className="text-4xl font-bold text-[#5c2d16]">Edit Product</h1>
-                    <p className="text-gray-600 mt-2">Update product information</p>
-                </div>
-
-                {/* Error Message */}
-                {error && (
-                    <div className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6">
-                        {error}
+                <div className="mb-6">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-900 mb-1">Edit Product</h1>
+                                <p className="text-gray-500 text-sm">Update product information and details</p>
+                            </div>
+                            <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg">
+                                <span className="text-xs font-medium text-blue-600">Step {currentStep + 1} of 7</span>
+                            </div>
+                        </div>
                     </div>
-                )}
+
+                    {/* Error Message */}
+                    {error && (
+                        <div className="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-r-lg mb-6 shadow-sm">
+                            <div className="flex items-center">
+                                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                </svg>
+                                <span className="text-sm font-medium">{error}</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Tab Navigation */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6 overflow-x-auto">
+                        <nav className="flex gap-2 min-w-max">
+                            {navigationSections.map((section, index) => {
+                                const isActive = index === currentStep;
+                                return (
+                                    <button
+                                        key={section.id}
+                                        type="button"
+                                        onClick={() => goToStep(index)}
+                                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm whitespace-nowrap transition-all duration-200 ${
+                                            isActive
+                                                ? 'bg-gradient-to-r from-green-600 to-green-700 text-white shadow-md shadow-green-500/30'
+                                                : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
+                                        }`}
+                                        disabled={saving}
+                                    >
+                                        <span className="text-base">{section.icon}</span>
+                                        <span>{section.title}</span>
+                                        {isActive && (
+                                            <span className="ml-1 w-2 h-2 bg-white rounded-full"></span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </nav>
+                    </div>
+                </div>
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="space-y-6">
+
                     {/* Basic Information */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Basic Information</h2>
+                    {currentStep === 0 && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+                        <div className="mb-6 pb-4 border-b border-gray-200">
+                            <h2 className="text-2xl font-bold text-gray-900">Basic Information</h2>
+                            <p className="text-sm text-gray-500 mt-1">Essential product details</p>
+                        </div>
                         
-                        <div className="space-y-4">
+                        <div className="space-y-6">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
                                     Product Name <span className="text-red-500">*</span>
                                 </label>
                                 <input
@@ -370,14 +495,14 @@ const AdminProductEdit = () => {
                                     value={formData.name}
                                     onChange={handleChange}
                                     placeholder="e.g., Kapiva Dia Free Juice 1L"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all bg-white text-gray-900 placeholder-gray-400"
                                     required
                                     disabled={saving}
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
                                     Description
                                 </label>
                                 <textarea
@@ -386,7 +511,7 @@ const AdminProductEdit = () => {
                                     onChange={handleChange}
                                     placeholder="Enter product description..."
                                     rows="4"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all bg-white text-gray-900 placeholder-gray-400 resize-none"
                                     disabled={saving}
                                 />
                             </div>
@@ -459,7 +584,7 @@ const AdminProductEdit = () => {
                                         disabled={saving}
                                     >
                                         <option value="">Select Category</option>
-                                        {Array.isArray(categories) && categories.map(cat => (
+                                        {categoryOptions.map(cat => (
                                             <option key={cat._id} value={cat._id}>{cat.name}</option>
                                         ))}
                                     </select>
@@ -485,7 +610,7 @@ const AdminProductEdit = () => {
                                             <button
                                                 type="button"
                                                 onClick={() => removeArrayItem('images', index)}
-                                                className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                                                className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 border border-red-200 font-medium transition-all duration-200"
                                                 disabled={saving}
                                             >
                                                 Remove
@@ -496,7 +621,7 @@ const AdminProductEdit = () => {
                                 <button
                                     type="button"
                                     onClick={() => addArrayItem('images', '')}
-                                    className="mt-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                                    className="mt-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 border border-gray-300 font-medium transition-all duration-200 shadow-sm hover:shadow"
                                     disabled={saving}
                                 >
                                     + Add Image
@@ -568,12 +693,17 @@ const AdminProductEdit = () => {
                             </div>
                         </div>
                     </div>
+                    )}
 
                     {/* Ayurvedic Details */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Ayurvedic Details</h2>
+                    {currentStep === 1 && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+                        <div className="mb-6 pb-4 border-b border-gray-200">
+                            <h2 className="text-2xl font-bold text-gray-900">Ayurvedic Details</h2>
+                            <p className="text-sm text-gray-500 mt-1">Traditional and medicinal information</p>
+                        </div>
                         
-                        <div className="space-y-4">
+                        <div className="space-y-6">
                             {/* Ingredients */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1037,10 +1167,17 @@ const AdminProductEdit = () => {
                             </div>
                         </div>
                     </div>
+                    )}
 
+                    {/* Usage & Storage - How To Use, How To Store, How To Consume */}
+                    {currentStep === 2 && (
+                    <div className="space-y-6">
                     {/* How To Use */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-2xl font-semibold mb-4 text-gray-800">How To Use</h2>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+                        <div className="mb-6 pb-4 border-b border-gray-200">
+                            <h2 className="text-2xl font-bold text-gray-900">How To Use</h2>
+                            <p className="text-sm text-gray-500 mt-1">Usage instructions and guidelines</p>
+                        </div>
                         {formData.howToUse.map((item, index) => (
                             <div key={index} className="border border-gray-200 rounded-lg p-4 mb-3">
                                 <div className="grid grid-cols-1 gap-3">
@@ -1092,8 +1229,11 @@ const AdminProductEdit = () => {
                     </div>
 
                     {/* How To Store */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-2xl font-semibold mb-4 text-gray-800">How To Store</h2>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+                        <div className="mb-6 pb-4 border-b border-gray-200">
+                            <h2 className="text-2xl font-bold text-gray-900">How To Store</h2>
+                            <p className="text-sm text-gray-500 mt-1">Storage instructions and tips</p>
+                        </div>
                         {formData.howToStore.map((item, index) => (
                             <div key={index} className="border border-gray-200 rounded-lg p-4 mb-3">
                                 <div className="grid grid-cols-1 gap-3">
@@ -1145,8 +1285,11 @@ const AdminProductEdit = () => {
                     </div>
 
                     {/* How To Consume */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-2xl font-semibold mb-4 text-gray-800">How To Consume</h2>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+                        <div className="mb-6 pb-4 border-b border-gray-200">
+                            <h2 className="text-2xl font-bold text-gray-900">How To Consume</h2>
+                            <p className="text-sm text-gray-500 mt-1">Consumption methods and recommendations</p>
+                        </div>
                         {formData.howToConsume.map((item, index) => (
                             <div key={index} className="border border-gray-200 rounded-lg p-4 mb-3">
                                 <div className="grid grid-cols-1 gap-3">
@@ -1196,10 +1339,16 @@ const AdminProductEdit = () => {
                             + Add Consumption Method
                         </button>
                     </div>
+                    </div>
+                    )}
 
                     {/* FAQ */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-2xl font-semibold mb-4 text-gray-800">FAQ</h2>
+                    {currentStep === 3 && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+                        <div className="mb-6 pb-4 border-b border-gray-200">
+                            <h2 className="text-2xl font-bold text-gray-900">Frequently Asked Questions</h2>
+                            <p className="text-sm text-gray-500 mt-1">Common questions and answers</p>
+                        </div>
                         {formData.faq.map((item, index) => (
                             <div key={index} className="border border-gray-200 rounded-lg p-4 mb-3">
                                 <div className="grid grid-cols-1 gap-3">
@@ -1241,24 +1390,27 @@ const AdminProductEdit = () => {
                             + Add FAQ
                         </button>
                     </div>
+                    )}
 
                     {/* Pack & Combo Options */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Pack & Combo Options</h2>
+                    {currentStep === 4 && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+                        <div className="mb-6 pb-4 border-b border-gray-200">
+                            <h2 className="text-2xl font-bold text-gray-900">Pack & Combo Options</h2>
+                            <p className="text-sm text-gray-500 mt-1">Create special offers and bundles</p>
+                        </div>
                         
                         {/* Pack Options */}
                         <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Pack Options
-                            </label>
-                            <p className="text-xs text-gray-500 mb-3">Offer multi-pack deals with special pricing</p>
+                            <h3 className="text-lg font-semibold text-gray-700 mb-2">Pack Options</h3>
                             {formData.packOptions.map((pack, index) => (
                                 <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
                                     <div>
                                         <label className="block text-xs text-gray-600 mb-1">Pack Size *</label>
                                         <input
                                             type="number"
-                                            placeholder="e.g., 2"
+                                            min="1"
+                                            placeholder="Pack Size"
                                             value={pack.packSize}
                                             onChange={(e) => handleObjectArrayChange('packOptions', index, 'packSize', e.target.value)}
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg"
@@ -1269,7 +1421,8 @@ const AdminProductEdit = () => {
                                         <label className="block text-xs text-gray-600 mb-1">Pack Price (₹) *</label>
                                         <input
                                             type="number"
-                                            placeholder="e.g., 1398"
+                                            min="0"
+                                            placeholder="Pack Price"
                                             value={pack.packPrice}
                                             onChange={(e) => handleObjectArrayChange('packOptions', index, 'packPrice', e.target.value)}
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg"
@@ -1280,7 +1433,8 @@ const AdminProductEdit = () => {
                                         <label className="block text-xs text-gray-600 mb-1">Savings %</label>
                                         <input
                                             type="number"
-                                            placeholder="e.g., 10"
+                                            min="0"
+                                            placeholder="Savings %"
                                             value={pack.savingsPercent}
                                             onChange={(e) => handleObjectArrayChange('packOptions', index, 'savingsPercent', e.target.value)}
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg"
@@ -1291,7 +1445,7 @@ const AdminProductEdit = () => {
                                         <label className="block text-xs text-gray-600 mb-1">Label</label>
                                         <input
                                             type="text"
-                                            placeholder="e.g., Family Pack"
+                                            placeholder="Label"
                                             value={pack.label}
                                             onChange={(e) => handleObjectArrayChange('packOptions', index, 'label', e.target.value)}
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg"
@@ -1332,6 +1486,7 @@ const AdminProductEdit = () => {
                                                     src={pack.image}
                                                     alt="Pack preview"
                                                     className="w-16 h-16 object-cover rounded border"
+                                                    loading="lazy"
                                                 />
                                             </div>
                                         )}
@@ -1358,53 +1513,43 @@ const AdminProductEdit = () => {
 
                         {/* Free Products */}
                         <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Free Products (Buy X Get Y Free)
-                            </label>
-                            <p className="text-xs text-gray-500 mb-3">Offer free products when customers buy a certain quantity</p>
+                            <h3 className="text-lg font-semibold text-gray-700 mb-2">Free Products (Buy X Get Y)</h3>
                             {formData.freeProducts.map((item, index) => (
                                 <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
-                                    <div>
-                                        <label className="block text-xs text-gray-600 mb-1">Free Product ID</label>
-                                        <input
-                                            type="text"
-                                            placeholder="Product ID"
-                                            value={item.product}
-                                            onChange={(e) => handleObjectArrayChange('freeProducts', index, 'product', e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                            disabled={saving}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-600 mb-1">Min Quantity to Buy</label>
-                                        <input
-                                            type="number"
-                                            placeholder="e.g., 2"
-                                            value={item.minQuantity}
-                                            onChange={(e) => handleObjectArrayChange('freeProducts', index, 'minQuantity', e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                            disabled={saving}
-                                        />
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <div className="flex-1">
-                                            <label className="block text-xs text-gray-600 mb-1">Free Quantity</label>
-                                            <input
-                                                type="number"
-                                                placeholder="e.g., 1"
-                                                value={item.quantity}
-                                                onChange={(e) => handleObjectArrayChange('freeProducts', index, 'quantity', e.target.value)}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                                disabled={saving}
-                                            />
-                                        </div>
+                                    <input
+                                        type="text"
+                                        placeholder="Product ID"
+                                        value={item.product}
+                                        onChange={(e) => handleObjectArrayChange('freeProducts', index, 'product', e.target.value)}
+                                        className="px-4 py-2 border border-gray-300 rounded-lg"
+                                        disabled={saving}
+                                    />
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        placeholder="Min Quantity"
+                                        value={item.minQuantity}
+                                        onChange={(e) => handleObjectArrayChange('freeProducts', index, 'minQuantity', e.target.value)}
+                                        className="px-4 py-2 border border-gray-300 rounded-lg"
+                                        disabled={saving}
+                                    />
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        placeholder="Free Quantity"
+                                        value={item.quantity}
+                                        onChange={(e) => handleObjectArrayChange('freeProducts', index, 'quantity', e.target.value)}
+                                        className="px-4 py-2 border border-gray-300 rounded-lg"
+                                        disabled={saving}
+                                    />
+                                    <div className="md:col-span-3 flex justify-end">
                                         <button
                                             type="button"
                                             onClick={() => removeArrayItem('freeProducts', index)}
-                                            className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 self-end"
+                                            className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
                                             disabled={saving}
                                         >
-                                            ×
+                                            Remove
                                         </button>
                                     </div>
                                 </div>
@@ -1415,59 +1560,49 @@ const AdminProductEdit = () => {
                                 className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
                                 disabled={saving}
                             >
-                                + Add Free Product
+                                + Add Free Product Rule
                             </button>
                         </div>
 
                         {/* Bundle With */}
                         <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Bundle With Other Products
-                            </label>
-                            <p className="text-xs text-gray-500 mb-3">Create bundle deals with other products</p>
+                            <h3 className="text-lg font-semibold text-gray-700 mb-2">Bundle With</h3>
                             {formData.bundleWith.map((item, index) => (
                                 <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
-                                    <div>
-                                        <label className="block text-xs text-gray-600 mb-1">Bundle Product ID</label>
-                                        <input
-                                            type="text"
-                                            placeholder="Product ID"
-                                            value={item.product}
-                                            onChange={(e) => handleObjectArrayChange('bundleWith', index, 'product', e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                            disabled={saving}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-600 mb-1">Bundle Price (₹)</label>
-                                        <input
-                                            type="number"
-                                            placeholder="e.g., 1499"
-                                            value={item.bundlePrice}
-                                            onChange={(e) => handleObjectArrayChange('bundleWith', index, 'bundlePrice', e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                            disabled={saving}
-                                        />
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <div className="flex-1">
-                                            <label className="block text-xs text-gray-600 mb-1">Savings (₹)</label>
-                                            <input
-                                                type="number"
-                                                placeholder="e.g., 200"
-                                                value={item.savingsAmount}
-                                                onChange={(e) => handleObjectArrayChange('bundleWith', index, 'savingsAmount', e.target.value)}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                                disabled={saving}
-                                            />
-                                        </div>
+                                    <input
+                                        type="text"
+                                        placeholder="Bundle Product ID"
+                                        value={item.product}
+                                        onChange={(e) => handleObjectArrayChange('bundleWith', index, 'product', e.target.value)}
+                                        className="px-4 py-2 border border-gray-300 rounded-lg"
+                                        disabled={saving}
+                                    />
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        placeholder="Bundle Price"
+                                        value={item.bundlePrice}
+                                        onChange={(e) => handleObjectArrayChange('bundleWith', index, 'bundlePrice', e.target.value)}
+                                        className="px-4 py-2 border border-gray-300 rounded-lg"
+                                        disabled={saving}
+                                    />
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        placeholder="Savings Amount"
+                                        value={item.savingsAmount}
+                                        onChange={(e) => handleObjectArrayChange('bundleWith', index, 'savingsAmount', e.target.value)}
+                                        className="px-4 py-2 border border-gray-300 rounded-lg"
+                                        disabled={saving}
+                                    />
+                                    <div className="md:col-span-3 flex justify-end">
                                         <button
                                             type="button"
                                             onClick={() => removeArrayItem('bundleWith', index)}
-                                            className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 self-end"
+                                            className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
                                             disabled={saving}
                                         >
-                                            ×
+                                            Remove
                                         </button>
                                     </div>
                                 </div>
@@ -1528,10 +1663,15 @@ const AdminProductEdit = () => {
                             </ul>
                         </div>
                     </div>
+                    )}
 
                     {/* Shipping Options */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Shipping Options</h2>
+                    {currentStep === 5 && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+                        <div className="mb-6 pb-4 border-b border-gray-200">
+                            <h2 className="text-2xl font-bold text-gray-900">Shipping Options</h2>
+                            <p className="text-sm text-gray-500 mt-1">Configure shipping settings</p>
+                        </div>
                         
                         {/* Free Shipping */}
                         <div className="mb-6">
@@ -1598,10 +1738,15 @@ const AdminProductEdit = () => {
                             </ul>
                         </div>
                     </div>
+                    )}
 
                     {/* SEO */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-2xl font-semibold mb-4 text-gray-800">SEO Information</h2>
+                    {currentStep === 6 && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+                        <div className="mb-6 pb-4 border-b border-gray-200">
+                            <h2 className="text-2xl font-bold text-gray-900">SEO Information</h2>
+                            <p className="text-sm text-gray-500 mt-1">Search engine optimization settings</p>
+                        </div>
                         
                         <div className="space-y-4">
                             <div>
@@ -1672,24 +1817,90 @@ const AdminProductEdit = () => {
                             </div>
                         </div>
                     </div>
+                    )}
 
-                    {/* Submit Buttons */}
-                    <div className="flex gap-4">
-                        <button
-                            type="submit"
-                            disabled={saving}
-                            className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold disabled:bg-gray-400"
-                        >
-                            {saving ? 'Updating...' : 'Update Product'}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => navigate('/admin/products')}
-                            disabled={saving}
-                            className="flex-1 bg-gray-200 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors font-semibold"
-                        >
-                            Cancel
-                        </button>
+                    {/* Navigation & Submit Buttons */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-8">
+                        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                            {/* Previous Button */}
+                            <div className="w-full sm:w-auto">
+                                {currentStep > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => goToStep(currentStep - 1)}
+                                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium shadow-sm hover:shadow"
+                                        disabled={saving}
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                        </svg>
+                                        Previous
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Step Indicator */}
+                            <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg">
+                                <span className="text-sm font-medium text-gray-600">
+                                    Step <span className="text-green-600 font-bold">{currentStep + 1}</span> of <span className="font-bold">7</span>
+                                </span>
+                            </div>
+
+                            {/* Next Button */}
+                            <div className="w-full sm:w-auto flex gap-3">
+                                {currentStep < 6 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => goToStep(currentStep + 1)}
+                                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 font-medium shadow-md hover:shadow-lg"
+                                        disabled={saving}
+                                    >
+                                        Next
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                )}
+                                
+                                {/* Submit Button - Show on last step */}
+                                {currentStep === 6 && (
+                                    <button
+                                        type="submit"
+                                        disabled={saving}
+                                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 font-semibold shadow-md hover:shadow-lg disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed"
+                                    >
+                                        {saving ? (
+                                            <>
+                                                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                Updating...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                                Update Product
+                                            </>
+                                        )}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Cancel Button */}
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                            <button
+                                type="button"
+                                onClick={handleNavigateBack}
+                                disabled={saving}
+                                className="w-full sm:w-auto px-6 py-2.5 text-gray-600 hover:text-gray-800 font-medium transition-colors duration-200"
+                            >
+                                Cancel
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>

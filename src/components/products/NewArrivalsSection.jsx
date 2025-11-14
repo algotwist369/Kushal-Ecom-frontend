@@ -25,11 +25,14 @@ const NewArrivalsSection = () => {
 
   const fetchNewArrivals = async () => {
     try {
-      const response = await api.get('/products/newarrivals/list?limit=12');
+      const response = await api.get('/products/new-arrivals?limit=12');
       setProducts(response.data.products || []);
     } catch (error) {
       console.error('Error fetching new arrivals:', error);
-      toast.error('Failed to load new arrivals');
+      // Don't show error toast if it's just a 404 or empty result
+      if (error.response?.status !== 404) {
+        toast.error('Failed to load new arrivals');
+      }
     } finally {
       setLoading(false);
     }

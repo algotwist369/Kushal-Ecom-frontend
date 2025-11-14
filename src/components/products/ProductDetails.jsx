@@ -34,17 +34,17 @@ const ImageMagnifier = ({ src, alt, className = "" }) => {
 
     const handleMouseMove = (e) => {
         if (!imageRef.current || !containerRef.current || isMobile) return;
-        
+
         const imageRect = imageRef.current.getBoundingClientRect();
-        
+
         // Calculate relative position within the image
         const x = e.clientX - imageRect.left;
         const y = e.clientY - imageRect.top;
-        
+
         // Ensure coordinates are within image bounds
         const boundedX = Math.max(0, Math.min(x, imageRect.width));
         const boundedY = Math.max(0, Math.min(y, imageRect.height));
-        
+
         setMousePosition({ x: boundedX, y: boundedY });
         setScreenPosition({ x: e.clientX, y: e.clientY });
     };
@@ -66,14 +66,14 @@ const ImageMagnifier = ({ src, alt, className = "" }) => {
     // Calculate background position for zoom effect
     const getBackgroundPosition = () => {
         if (!imageRef.current) return '0px 0px';
-        
+
         const imageRect = imageRef.current.getBoundingClientRect();
         const scaleX = ZOOM_LEVEL;
         const scaleY = ZOOM_LEVEL;
-        
+
         const bgX = -(mousePosition.x * scaleX - MAGNIFIER_SIZE / 2);
         const bgY = -(mousePosition.y * scaleY - MAGNIFIER_SIZE / 2);
-        
+
         return `${bgX}px ${bgY}px`;
     };
 
@@ -91,7 +91,7 @@ const ImageMagnifier = ({ src, alt, className = "" }) => {
                 draggable={false}
                 style={{ objectFit: 'contain' }}
             />
-            
+
             {/* Magnifier - Desktop only */}
             {!isMobile && isHovering && (
                 <div
@@ -110,25 +110,25 @@ const ImageMagnifier = ({ src, alt, className = "" }) => {
                 >
                     {/* Crosshair overlay */}
                     <div className="absolute inset-0 pointer-events-none">
-                        <div 
+                        <div
                             className="absolute w-px h-full bg-red-500 opacity-50"
                             style={{ left: '50%', transform: 'translateX(-50%)' }}
                         />
-                        <div 
+                        <div
                             className="absolute h-px w-full bg-red-500 opacity-50"
                             style={{ top: '50%', transform: 'translateY(-50%)' }}
                         />
                     </div>
                 </div>
             )}
-            
+
             {/* Zoom indicator - Desktop only */}
             {!isMobile && isHovering && (
                 <div className="absolute top-2 left-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded pointer-events-none z-10">
                     {ZOOM_LEVEL}x Zoom
                 </div>
             )}
-            
+
             {/* Mobile tap indicator */}
             {isMobile && (
                 <div className="absolute top-2 left-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded pointer-events-none z-10">
@@ -250,7 +250,7 @@ const ProductDetails = () => {
     const [uploadingImages, setUploadingImages] = useState(false);
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState(0);
-    
+
     // Coupon claim state
     const [phoneNumber, setPhoneNumber] = useState('');
     const [claimedCoupon, setClaimedCoupon] = useState(null);
@@ -275,11 +275,11 @@ const ProductDetails = () => {
             if (response.data.category?._id) {
                 fetchRelatedProducts(response.data.category._id);
             }
-            
+
             if (response.data.bundleWith && response.data.bundleWith.length > 0) {
                 fetchBundleProducts(response.data.bundleWith);
             }
-            
+
             if (response.data.freeProducts && response.data.freeProducts.length > 0) {
                 fetchFreeProducts(response.data.freeProducts);
             }
@@ -343,18 +343,18 @@ const ProductDetails = () => {
             setPhoneValidation({ isValid: false, message: '' });
             return false;
         }
-        
+
         if (phone.length < 10) {
             setPhoneValidation({ isValid: false, message: 'Phone number must be 10 digits' });
             return false;
         }
-        
+
         const phoneRegex = /^[6-9]\d{9}$/;
         if (!phoneRegex.test(phone)) {
             setPhoneValidation({ isValid: false, message: 'Phone number must start with 6, 7, 8, or 9' });
             return false;
         }
-        
+
         setPhoneValidation({ isValid: true, message: 'Valid phone number' });
         return true;
     };
@@ -362,7 +362,7 @@ const ProductDetails = () => {
     const handleClaimCoupon = async (e) => {
         e.preventDefault();
         setCouponError('');
-        
+
         if (!phoneNumber) {
             setCouponError("Please enter your phone number");
             return;
@@ -562,9 +562,36 @@ const ProductDetails = () => {
 
     const tabs = [
         { id: 'description', label: 'Description', show: true },
-        { id: 'ingredients', label: 'Ingredients', show: product.ingredients?.length > 0 },
-        { id: 'benefits', label: 'Benefits', show: product.benefits?.length > 0 },
-        { id: 'usage', label: 'How to Use', show: product.dosage || product.howToUse?.length > 0 },
+        {
+            id: 'ingredients', label: 'Ingredients', show: product.ingredients && (
+                (Array.isArray(product.ingredients) && product.ingredients.length > 0) ||
+                (typeof product.ingredients === 'string' && product.ingredients.trim() !== '')
+            )
+        },
+        {
+            id: 'benefits', label: 'Benefits', show: product.benefits && (
+                (Array.isArray(product.benefits) && product.benefits.length > 0) ||
+                (typeof product.benefits === 'string' && product.benefits.trim() !== '')
+            )
+        },
+        {
+            id: 'usage', label: 'How to Use', show: (product.dosage && (
+                (Array.isArray(product.dosage) && product.dosage.length > 0) || 
+                (typeof product.dosage === 'string' && product.dosage.trim() !== '')
+            )) || (product.howToUse && (
+                (Array.isArray(product.howToUse) && product.howToUse.length > 0) ||
+                (typeof product.howToUse === 'string' && product.howToUse.trim() !== '')
+            )) || (product.howToConsume && (
+                (Array.isArray(product.howToConsume) && product.howToConsume.length > 0) ||
+                (typeof product.howToConsume === 'string' && product.howToConsume.trim() !== '')
+            )) || (product.storageInstructions && (
+                (Array.isArray(product.storageInstructions) && product.storageInstructions.length > 0) || 
+                (typeof product.storageInstructions === 'string' && product.storageInstructions.trim() !== '')
+            )) || (product.contraindications && (
+                (Array.isArray(product.contraindications) && product.contraindications.length > 0) || 
+                (typeof product.contraindications === 'string' && product.contraindications.trim() !== '')
+            ))
+        },
         { id: 'specifications', label: 'Specifications', show: true },
         { id: 'reviews', label: `Reviews (${product.numReviews || 0})`, show: true }
     ].filter(tab => tab.show);
@@ -598,7 +625,7 @@ const ProductDetails = () => {
 
                 <div className="max-w-[99rem] mx-auto px-6 py-8">
                     {/* Back Button */}
-                    <button 
+                    <button
                         onClick={() => navigate(-1)}
                         className="flex items-center gap-2 text-gray-600 hover:text-[#5c2d16] mb-6 transition group"
                     >
@@ -609,7 +636,7 @@ const ProductDetails = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-12">
                         {/* Images */}
                         <div className="relative lg:pr-80">
-                            <div 
+                            <div
                                 className="bg-gray-50 rounded-lg mb-4 aspect-square max-h-[600px] flex items-center justify-center cursor-zoom-in hover:bg-gray-100 transition group relative overflow-hidden"
                                 onClick={() => {
                                     setLightboxIndex(selectedImageIndex);
@@ -622,18 +649,17 @@ const ProductDetails = () => {
                                     className="w-full h-full transition-transform"
                                 />
                             </div>
-                            
+
                             {/* Magnifier space indicator */}
-                            
+
                             {product.images && product.images.length > 1 && (
                                 <div className="grid grid-cols-5 gap-2">
                                     {product.images.map((img, idx) => (
                                         <button
                                             key={idx}
                                             onClick={() => { setMainImage(img); setSelectedImageIndex(idx); }}
-                                            className={`border-2 rounded overflow-hidden aspect-square ${
-                                                selectedImageIndex === idx ? 'border-[#5c2d16]' : 'border-gray-200 hover:border-gray-400'
-                                            }`}
+                                            className={`border-2 rounded overflow-hidden aspect-square ${selectedImageIndex === idx ? 'border-[#5c2d16]' : 'border-gray-200 hover:border-gray-400'
+                                                }`}
                                         >
                                             <img src={img} alt="" className="w-full h-full object-cover" />
                                         </button>
@@ -645,7 +671,7 @@ const ProductDetails = () => {
                         {/* Product Info */}
                         <div>
                             <h1 className="text-3xl font-bold text-[#5c2d16] mb-3">{product.name}</h1>
-                            
+
                             {/* Rating */}
                             {product.averageRating > 0 && (
                                 <div className="flex items-center gap-2 mb-4">
@@ -673,18 +699,29 @@ const ProductDetails = () => {
                             <p className="text-gray-600 mb-6 leading-relaxed">{product.description}</p>
 
                             {/* Certifications */}
-                            {product.certification && product.certification.length > 0 && (
-                                <div className="flex items-center gap-4 mb-6 pb-6 border-b">
-                                    <BsShieldCheck className="text-gray-600 text-xl" />
-                                    <div className="flex flex-wrap gap-2">
-                                        {product.certification.map((cert, idx) => (
-                                            <span key={idx} className="text-xs bg-gray-50 text-gray-700 px-3 py-1 rounded-full font-medium">
-                                                {cert.name}
-                                            </span>
-                                        ))}
+                            {product.certification && (
+                                (Array.isArray(product.certification) && product.certification.length > 0) ||
+                                (typeof product.certification === 'string' && product.certification.trim() !== '')
+                            ) && (
+                                    <div className="flex items-center gap-4 mb-6 pb-6 border-b">
+                                        <BsShieldCheck className="text-gray-600 text-xl" />
+                                        <div className="flex flex-wrap gap-2">
+                                            {Array.isArray(product.certification) ? (
+                                                // If certification is an array
+                                                product.certification.map((cert, idx) => (
+                                                    <span key={idx} className="text-xs bg-gray-50 text-gray-700 px-3 py-1 rounded-full font-medium">
+                                                        {typeof cert === 'object' && cert !== null ? cert.name : cert}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                // If certification is a string
+                                                <span className="text-xs bg-gray-50 text-gray-700 px-3 py-1 rounded-full font-medium">
+                                                    {product.certification}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
 
                             {/* Pack Options */}
                             {product.packOptions && product.packOptions.length > 0 && (
@@ -693,9 +730,8 @@ const ProductDetails = () => {
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                         <button
                                             onClick={() => setSelectedPack(null)}
-                                            className={`border-2 rounded-lg p-4 text-left transition-all ${
-                                                !selectedPack ? 'border-[#5c2d16] bg-gray-50' : 'border-gray-200 hover:border-gray-400'
-                                            }`}
+                                            className={`border-2 rounded-lg p-4 text-left transition-all ${!selectedPack ? 'border-[#5c2d16] bg-gray-50' : 'border-gray-200 hover:border-gray-400'
+                                                }`}
                                         >
                                             <div className="flex items-center gap-3">
                                                 <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
@@ -711,9 +747,8 @@ const ProductDetails = () => {
                                             <button
                                                 key={idx}
                                                 onClick={() => setSelectedPack(pack)}
-                                                className={`relative border-2 rounded-lg p-4 text-left transition-all ${
-                                                    selectedPack === pack ? 'border-[#5c2d16] bg-gray-50' : 'border-gray-200 hover:border-gray-400'
-                                                }`}
+                                                className={`relative border-2 rounded-lg p-4 text-left transition-all ${selectedPack === pack ? 'border-[#5c2d16] bg-gray-50' : 'border-gray-200 hover:border-gray-400'
+                                                    }`}
                                             >
                                                 {pack.savingsPercent > 0 && (
                                                     <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs px-2 py-0.5 rounded-full font-bold">
@@ -721,18 +756,23 @@ const ProductDetails = () => {
                                                     </span>
                                                 )}
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                                                    <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-gray-200">
                                                         {pack.image ? (
                                                             <img
                                                                 src={pack.image}
                                                                 alt={pack.label || `Pack of ${pack.packSize}`}
                                                                 className="w-full h-full object-cover"
+                                                                onError={(e) => {
+                                                                    e.target.style.display = 'none';
+                                                                    e.target.nextSibling.style.display = 'flex';
+                                                                }}
                                                             />
-                                                        ) : (
-                                                            <div className="w-full h-full bg-gray-200 rounded-lg flex items-center justify-center">
-                                                                <span className="text-lg font-bold text-gray-600">{pack.packSize}</span>
-                                                            </div>
-                                                        )}
+                                                        ) : null}
+                                                        <div 
+                                                            className={`w-full h-full rounded-lg flex items-center justify-center ${pack.image ? 'hidden' : ''}`}
+                                                        >
+                                                            <span className="text-lg font-bold text-gray-600">{pack.packSize}</span>
+                                                        </div>
                                                     </div>
                                                     <div className="flex-1">
                                                         <p className="font-medium text-sm">{pack.label || `Pack of ${pack.packSize}`}</p>
@@ -814,15 +854,25 @@ const ProductDetails = () => {
                                             </div>
                                         )}
                                         {product.formulation && (
+                                            (Array.isArray(product.formulation) && product.formulation.length > 0) || 
+                                            (typeof product.formulation === 'string' && product.formulation.trim() !== '')
+                                        ) && (
                                             <div>
                                                 <p className="text-gray-500">Form</p>
-                                                <p className="font-semibold text-[#5c2d16]">{product.formulation}</p>
+                                                <p className="font-semibold text-[#5c2d16]">
+                                                    {Array.isArray(product.formulation) ? product.formulation.join(', ') : product.formulation}
+                                                </p>
                                             </div>
                                         )}
                                         {product.shelfLife && (
+                                            (Array.isArray(product.shelfLife) && product.shelfLife.length > 0) || 
+                                            (typeof product.shelfLife === 'string' && product.shelfLife.trim() !== '')
+                                        ) && (
                                             <div>
                                                 <p className="text-gray-500">Shelf Life</p>
-                                                <p className="font-semibold text-[#5c2d16]">{product.shelfLife}</p>
+                                                <p className="font-semibold text-[#5c2d16]">
+                                                    {Array.isArray(product.shelfLife) ? product.shelfLife.join(', ') : product.shelfLife}
+                                                </p>
                                             </div>
                                         )}
                                     </div>
@@ -838,8 +888,8 @@ const ProductDetails = () => {
                                 <div className="max-w-2xl mx-auto">
                                     <div className="text-center mb-8">
                                         <h2 className="text-2xl font-bold text-[#5c2d16] mb-2">
-                                            Get Extra {activeCoupons[0]?.discountType === 'percentage' 
-                                                ? `${activeCoupons[0]?.discountValue}% OFF` 
+                                            Get Extra {activeCoupons[0]?.discountType === 'percentage'
+                                                ? `${activeCoupons[0]?.discountValue}% OFF`
                                                 : `₹${activeCoupons[0]?.discountValue} OFF`}
                                         </h2>
                                         <p className="text-gray-600">
@@ -864,15 +914,14 @@ const ProductDetails = () => {
                                                             validatePhoneNumber(newPhone);
                                                         }}
                                                         placeholder="Enter 10-digit mobile number"
-                                                        className={`w-full px-4 py-3 pr-10 border rounded-lg focus:ring-2 text-lg ${
-                                                            couponError 
-                                                                ? 'border-red-500 focus:ring-red-500 focus:border-red-500' 
+                                                        className={`w-full px-4 py-3 pr-10 border rounded-lg focus:ring-2 text-lg ${couponError
+                                                                ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
                                                                 : phoneValidation.isValid
-                                                                ? 'border-green-500 focus:ring-green-500 focus:border-green-500'
-                                                                : phoneNumber.length > 0 && !phoneValidation.isValid
-                                                                ? 'border-red-300 focus:ring-red-300 focus:border-red-300'
-                                                                : 'border-gray-300 focus:ring-[#5c2d16] focus:border-transparent'
-                                                        }`}
+                                                                    ? 'border-green-500 focus:ring-green-500 focus:border-green-500'
+                                                                    : phoneNumber.length > 0 && !phoneValidation.isValid
+                                                                        ? 'border-red-300 focus:ring-red-300 focus:border-red-300'
+                                                                        : 'border-gray-300 focus:ring-[#5c2d16] focus:border-transparent'
+                                                            }`}
                                                         required
                                                         maxLength="10"
                                                     />
@@ -919,7 +968,7 @@ const ProductDetails = () => {
                                                 <h3 className="text-xl font-bold text-[#5c2d16]">
                                                     Your Coupon Code
                                                 </h3>
-                                                <div 
+                                                <div
                                                     className="inline-block border-2 border-[#5c2d16] rounded-lg px-8 py-4 bg-gray-50 cursor-pointer hover:bg-gray-100 transition"
                                                     onClick={() => {
                                                         navigator.clipboard.writeText(claimedCoupon.code);
@@ -934,8 +983,8 @@ const ProductDetails = () => {
                                                 </div>
                                                 <div className="pt-4 space-y-2">
                                                     <p className="text-lg font-semibold text-[#5c2d16]">
-                                                        {claimedCoupon.discountType === 'percentage' 
-                                                            ? `Get ${claimedCoupon.discountValue}% OFF` 
+                                                        {claimedCoupon.discountType === 'percentage'
+                                                            ? `Get ${claimedCoupon.discountValue}% OFF`
                                                             : `Get ₹${claimedCoupon.discountValue} OFF`}
                                                     </p>
                                                     <p className="text-sm text-gray-600">
@@ -947,10 +996,10 @@ const ProductDetails = () => {
                                                         </p>
                                                     )}
                                                     <p className="text-xs text-gray-500 pt-2">
-                                                        Valid until: {new Date(claimedCoupon.validUntil).toLocaleDateString('en-IN', { 
-                                                            day: 'numeric', 
-                                                            month: 'long', 
-                                                            year: 'numeric' 
+                                                        Valid until: {new Date(claimedCoupon.validUntil).toLocaleDateString('en-IN', {
+                                                            day: 'numeric',
+                                                            month: 'long',
+                                                            year: 'numeric'
                                                         })}
                                                     </p>
                                                 </div>
@@ -978,97 +1027,97 @@ const ProductDetails = () => {
 
                     {/* Bundles & Free Products */}
                     {((product.bundleWith && product.bundleWith.length > 0 && bundleProducts.length > 0) ||
-                      (product.freeProducts && product.freeProducts.length > 0 && freeProductsData.length > 0)) && (
-                        <div className="mb-12">
-                            {/* Bundle Products */}
-                            {product.bundleWith && product.bundleWith.length > 0 && bundleProducts.length > 0 && (
-                                <div className="mb-8">
-                                    <h2 className="text-2xl font-bold text-[#5c2d16] mb-6"> Add for better results</h2>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {product.bundleWith.map((bundle, idx) => {
-                                            const bundleProduct = bundleProducts.find(p => p._id === bundle.product || p._id === bundle.product?._id);
-                                            if (!bundleProduct) return null;
+                        (product.freeProducts && product.freeProducts.length > 0 && freeProductsData.length > 0)) && (
+                            <div className="mb-12">
+                                {/* Bundle Products */}
+                                {product.bundleWith && product.bundleWith.length > 0 && bundleProducts.length > 0 && (
+                                    <div className="mb-8">
+                                        <h2 className="text-2xl font-bold text-[#5c2d16] mb-6"> Add for better results</h2>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            {product.bundleWith.map((bundle, idx) => {
+                                                const bundleProduct = bundleProducts.find(p => p._id === bundle.product || p._id === bundle.product?._id);
+                                                if (!bundleProduct) return null;
 
-                                            return (
-                                                <div key={idx} className="border border-gray-200 rounded-lg p-6 hover:shadow-lg transition">
-                                                    <div className="flex gap-4 mb-4">
-                                                        <img
-                                                            src={bundleProduct.images?.[0]}
-                                                            alt={bundleProduct.name}
-                                                            className="w-24 h-24 object-cover rounded"
-                                                        />
-                                                        <div className="flex-1">
-                                                            <h3 className="font-semibold text-[#5c2d16] mb-2 line-clamp-2">{bundleProduct.name}</h3>
-                                                            <div className="flex items-baseline gap-2">
-                                                                <span className="text-2xl font-bold text-[#5c2d16]">₹{bundle.bundlePrice}</span>
-                                                                {bundle.savingsAmount > 0 && (
-                                                                    <span className="text-sm text-green-600 font-medium">Save ₹{bundle.savingsAmount}</span>
-                                                                )}
+                                                return (
+                                                    <div key={idx} className="border border-gray-200 rounded-lg p-6 hover:shadow-lg transition">
+                                                        <div className="flex gap-4 mb-4">
+                                                            <img
+                                                                src={bundleProduct.images?.[0]}
+                                                                alt={bundleProduct.name}
+                                                                className="w-24 h-24 object-cover rounded"
+                                                            />
+                                                            <div className="flex-1">
+                                                                <h3 className="font-semibold text-[#5c2d16] mb-2 line-clamp-2">{bundleProduct.name}</h3>
+                                                                <div className="flex items-baseline gap-2">
+                                                                    <span className="text-2xl font-bold text-[#5c2d16]">₹{bundle.bundlePrice}</span>
+                                                                    {bundle.savingsAmount > 0 && (
+                                                                        <span className="text-sm text-green-600 font-medium">Save ₹{bundle.savingsAmount}</span>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </div>
+                                                        <button
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                if (!isAuthenticated) {
+                                                                    toast.error("Please login");
+                                                                    navigate("/login");
+                                                                    return;
+                                                                }
+                                                                if (product.stock <= 0 || bundleProduct.stock <= 0) {
+                                                                    toast.error("Out of stock");
+                                                                    return;
+                                                                }
+                                                                try {
+                                                                    await addToCart(product._id, 1);
+                                                                    await addToCart(bundleProduct._id, 1);
+                                                                    toast.success("Bundle added to cart");
+                                                                } catch (error) {
+                                                                    // Handled in context
+                                                                }
+                                                            }}
+                                                            className="w-full bg-[#5c2d16] hover:bg-gray-800 text-white py-3 rounded-lg font-semibold transition"
+                                                        >
+                                                            Add Bundle to Cart
+                                                        </button>
                                                     </div>
-                                                    <button
-                                                        onClick={async (e) => {
-                                                            e.stopPropagation();
-                                                            if (!isAuthenticated) {
-                                                                toast.error("Please login");
-                                                                navigate("/login");
-                                                                return;
-                                                            }
-                                                            if (product.stock <= 0 || bundleProduct.stock <= 0) {
-                                                                toast.error("Out of stock");
-                                                                return;
-                                                            }
-                                                            try {
-                                                                await addToCart(product._id, 1);
-                                                                await addToCart(bundleProduct._id, 1);
-                                                                toast.success("Bundle added to cart");
-                                                            } catch (error) {
-                                                                // Handled in context
-                                                            }
-                                                        }}
-                                                        className="w-full bg-[#5c2d16] hover:bg-gray-800 text-white py-3 rounded-lg font-semibold transition"
-                                                    >
-                                                        Add Bundle to Cart
-                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Free Products */}
+                                {product.freeProducts && product.freeProducts.length > 0 && freeProductsData.length > 0 && (
+                                    <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+                                        <h2 className="text-xl font-bold text-[#5c2d16] mb-4">Special Offer</h2>
+                                        {product.freeProducts.map((free, idx) => {
+                                            const freeProduct = freeProductsData.find(p => p._id === free.product || p._id === free.product?._id);
+                                            if (!freeProduct) return null;
+
+                                            return (
+                                                <div key={idx} className="bg-white rounded-lg p-4 mb-4">
+                                                    <div className="flex gap-4">
+                                                        <img
+                                                            src={freeProduct.images?.[0]}
+                                                            alt={freeProduct.name}
+                                                            className="w-20 h-20 object-cover rounded"
+                                                        />
+                                                        <div className="flex-1">
+                                                            <p className="font-semibold text-[#5c2d16] mb-2">{freeProduct.name}</p>
+                                                            <p className="text-sm text-green-700 font-medium">
+                                                                Buy {free.minQuantity} → Get {free.quantity} Free
+                                                            </p>
+                                                            <p className="text-sm text-gray-500 line-through">Worth ₹{freeProduct.price}</p>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
-                                </div>
-                            )}
-
-                            {/* Free Products */}
-                            {product.freeProducts && product.freeProducts.length > 0 && freeProductsData.length > 0 && (
-                                <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-                                    <h2 className="text-xl font-bold text-[#5c2d16] mb-4">Special Offer</h2>
-                                    {product.freeProducts.map((free, idx) => {
-                                        const freeProduct = freeProductsData.find(p => p._id === free.product || p._id === free.product?._id);
-                                        if (!freeProduct) return null;
-
-                                        return (
-                                            <div key={idx} className="bg-white rounded-lg p-4 mb-4">
-                                                <div className="flex gap-4">
-                                                    <img
-                                                        src={freeProduct.images?.[0]}
-                                                        alt={freeProduct.name}
-                                                        className="w-20 h-20 object-cover rounded"
-                                                    />
-                                                    <div className="flex-1">
-                                                        <p className="font-semibold text-[#5c2d16] mb-2">{freeProduct.name}</p>
-                                                        <p className="text-sm text-green-700 font-medium">
-                                                            Buy {free.minQuantity} → Get {free.quantity} Free
-                                                        </p>
-                                                        <p className="text-sm text-gray-500 line-through">Worth ₹{freeProduct.price}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    )}
+                                )}
+                            </div>
+                        )}
 
                     {/* Tabs */}
                     <div className="border-t mb-12">
@@ -1077,11 +1126,10 @@ const ProductDetails = () => {
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
-                                    className={`py-4 font-medium text-sm whitespace-nowrap border-b-2 transition ${
-                                        activeTab === tab.id
+                                    className={`py-4 font-medium text-sm whitespace-nowrap border-b-2 transition ${activeTab === tab.id
                                             ? 'border-[#5c2d16] text-[#5c2d16]'
                                             : 'border-transparent text-gray-500 hover:text-[#5c2d16]'
-                                    }`}
+                                        }`}
                                 >
                                     {tab.label}
                                 </button>
@@ -1110,128 +1158,180 @@ const ProductDetails = () => {
                             )}
 
                             {/* Ingredients Tab */}
-                            {activeTab === 'ingredients' && product.ingredients && product.ingredients.length > 0 && (
-                                <div>
-                                    <h3 className="text-xl font-bold mb-6">Ingredients</h3>
-                                    <div className="space-y-6 max-w-3xl">
-                                        {product.ingredients.map((item, idx) => (
-                                            <div key={idx} className="flex gap-6 items-start border border-gray-200 rounded-lg p-6 hover:shadow-md transition">
-                                                {item.image && (
-                                                    <div className="flex-shrink-0">
-                                                        <img 
-                                                            src={item.image} 
-                                                            alt={item.name} 
-                                                            className="w-24 h-24 rounded-full object-cover border-4 border-gray-100"
-                                                        />
+                            {activeTab === 'ingredients' && product.ingredients && (
+                                (Array.isArray(product.ingredients) && product.ingredients.length > 0) ||
+                                (typeof product.ingredients === 'string' && product.ingredients.trim() !== '')
+                            ) && (
+                                    <div>
+                                        <h3 className="text-xl font-bold mb-6">Ingredients</h3>
+                                        <div className="space-y-4 max-w-3xl">
+                                            {Array.isArray(product.ingredients) ? (
+                                                product.ingredients.map((item, idx) => (
+                                                    <div key={idx} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+                                                        <p className="text-gray-700 leading-relaxed">{item}</p>
                                                     </div>
-                                                )}
-                                                <div className="flex-1">
-                                                    <h4 className="font-bold text-[#5c2d16] mb-2 text-lg">{item.name}</h4>
-                                                    <p className="text-sm text-gray-600 leading-relaxed">{item.description}</p>
+                                                ))
+                                            ) : (
+                                                <div className="border border-gray-200 rounded-lg p-6">
+                                                    <p className="text-gray-700 leading-relaxed whitespace-pre-line">{product.ingredients}</p>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
 
                             {/* Benefits Tab */}
-                            {activeTab === 'benefits' && product.benefits && product.benefits.length > 0 && (
-                                <div>
-                                    <h3 className="text-xl font-bold mb-6">Health Benefits</h3>
-                                    <div className="space-y-6 max-w-3xl">
-                                        {product.benefits.map((item, idx) => (
-                                            <div key={idx} className="flex gap-6 items-start border border-gray-200 rounded-lg p-6 hover:shadow-md transition">
-                                                {item.image && (
-                                                    <div className="flex-shrink-0">
-                                                        <img 
-                                                            src={item.image} 
-                                                            alt={item.name} 
-                                                            className="w-20 h-20 rounded-full object-cover border-4 border-green-100"
-                                                        />
+                            {activeTab === 'benefits' && product.benefits && (
+                                (Array.isArray(product.benefits) && product.benefits.length > 0) ||
+                                (typeof product.benefits === 'string' && product.benefits.trim() !== '')
+                            ) && (
+                                    <div>
+                                        <h3 className="text-xl font-bold mb-6">Health Benefits</h3>
+                                        <div className="space-y-4 max-w-3xl">
+                                            {Array.isArray(product.benefits) ? (
+                                                product.benefits.map((item, idx) => (
+                                                    <div key={idx} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+                                                        <p className="text-gray-700 leading-relaxed">{item}</p>
                                                     </div>
-                                                )}
-                                                <div className="flex-1">
-                                                    <h4 className="font-bold text-[#5c2d16] mb-2 text-lg">{item.name}</h4>
-                                                    <p className="text-sm text-gray-600 leading-relaxed">{item.description}</p>
+                                                ))
+                                            ) : (
+                                                <div className="border border-gray-200 rounded-lg p-6">
+                                                    <p className="text-gray-700 leading-relaxed whitespace-pre-line">{product.benefits}</p>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
 
                             {/* Usage Tab */}
-                            {activeTab === 'usage' && (product.dosage || product.howToUse?.length > 0) && (
-                                <div>
+                            {activeTab === 'usage' && ((product.dosage && (
+                                (Array.isArray(product.dosage) && product.dosage.length > 0) || 
+                                (typeof product.dosage === 'string' && product.dosage.trim() !== '')
+                            )) || (product.howToUse && (
+                                (Array.isArray(product.howToUse) && product.howToUse.length > 0) || 
+                                (typeof product.howToUse === 'string' && product.howToUse.trim() !== '')
+                            )) || (product.howToConsume && (
+                                (Array.isArray(product.howToConsume) && product.howToConsume.length > 0) || 
+                                (typeof product.howToConsume === 'string' && product.howToConsume.trim() !== '')
+                            )) || (product.storageInstructions && (
+                                (Array.isArray(product.storageInstructions) && product.storageInstructions.length > 0) || 
+                                (typeof product.storageInstructions === 'string' && product.storageInstructions.trim() !== '')
+                            )) || (product.contraindications && (
+                                (Array.isArray(product.contraindications) && product.contraindications.length > 0) || 
+                                (typeof product.contraindications === 'string' && product.contraindications.trim() !== '')
+                            ))) && (
+                                    <div>
                                     {product.dosage && (
+                                        (Array.isArray(product.dosage) && product.dosage.length > 0) || 
+                                        (typeof product.dosage === 'string' && product.dosage.trim() !== '')
+                                    ) && (
                                         <div className="bg-gray-50 border-l-4 border-gray-600 p-6 rounded mb-8">
                                             <p className="font-bold text-[#5c2d16] mb-2">Dosage</p>
-                                            <p className="text-gray-700">{product.dosage}</p>
+                                            {Array.isArray(product.dosage) ? (
+                                                <ul className="list-disc list-inside space-y-2">
+                                                    {product.dosage.map((item, idx) => (
+                                                        <li key={idx} className="text-gray-700">{item}</li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <p className="text-gray-700">{product.dosage}</p>
+                                            )}
                                         </div>
                                     )}
 
-                                    {product.howToUse && product.howToUse.length > 0 && (
-                                        <div className="mb-8">
-                                            <h4 className="font-bold mb-4">How to Use</h4>
-                                            <div className="space-y-4">
-                                                {product.howToUse.map((step, idx) => (
-                                                    <div key={idx} className="flex gap-4 border border-gray-200 rounded-lg p-4">
-                                                        <div className="w-8 h-8 bg-[#5c2d16] text-white rounded-full flex items-center justify-center font-bold flex-shrink-0">
-                                                            {idx + 1}
+                                        {product.howToUse && (
+                                            (Array.isArray(product.howToUse) && product.howToUse.length > 0) ||
+                                            (typeof product.howToUse === 'string' && product.howToUse.trim() !== '')
+                                        ) && (
+                                                <div className="mb-8">
+                                                    <h4 className="font-bold mb-4">How to Use</h4>
+                                            {Array.isArray(product.howToUse) ? (
+                                                <div className="space-y-4">
+                                                    {product.howToUse.map((step, idx) => (
+                                                        <div key={idx} className="flex gap-4 border border-gray-200 rounded-lg p-4">
+                                                            <div className="w-8 h-8 bg-[#5c2d16] text-white rounded-full flex items-center justify-center font-bold flex-shrink-0">
+                                                                {idx + 1}
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <p className="text-gray-700 leading-relaxed">{step}</p>
+                                                            </div>
                                                         </div>
-                                                        {step.image && (
-                                                            <img src={step.image} alt={step.name} className="w-20 h-20 object-cover rounded" />
-                                                        )}
-                                                        <div>
-                                                            <p className="font-semibold text-[#5c2d16] mb-1">{step.name}</p>
-                                                            <p className="text-sm text-gray-600">{step.description}</p>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="border border-gray-200 rounded-lg p-4">
+                                                    <p className="text-gray-700 leading-relaxed whitespace-pre-line">{product.howToUse}</p>
+                                                </div>
+                                            )}
+                                                </div>
+                                            )}
 
-                                    {product.howToConsume && product.howToConsume.length > 0 && (
-                                        <div className="mb-8">
-                                            <h4 className="font-bold mb-4">Consumption Methods</h4>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                {product.howToConsume.map((method, idx) => (
-                                                    <div key={idx} className="border border-gray-200 rounded-lg p-4">
-                                                        <p className="font-semibold text-[#5c2d16] mb-1">{method.name}</p>
-                                                        <p className="text-sm text-gray-600">{method.description}</p>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
+                                        {product.howToConsume && (
+                                            (Array.isArray(product.howToConsume) && product.howToConsume.length > 0) ||
+                                            (typeof product.howToConsume === 'string' && product.howToConsume.trim() !== '')
+                                        ) && (
+                                                <div className="mb-8">
+                                                    <h4 className="font-bold mb-4">Consumption Methods</h4>
+                                            {Array.isArray(product.howToConsume) ? (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    {product.howToConsume.map((method, idx) => (
+                                                        <div key={idx} className="border border-gray-200 rounded-lg p-4">
+                                                            <p className="text-gray-700 leading-relaxed">{method}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="border border-gray-200 rounded-lg p-4">
+                                                    <p className="text-gray-700 leading-relaxed whitespace-pre-line">{product.howToConsume}</p>
+                                                </div>
+                                            )}
+                                                </div>
+                                            )}
 
                                     {product.storageInstructions && (
+                                        (Array.isArray(product.storageInstructions) && product.storageInstructions.length > 0) || 
+                                        (typeof product.storageInstructions === 'string' && product.storageInstructions.trim() !== '')
+                                    ) && (
                                         <div className="bg-yellow-50 border-l-4 border-yellow-600 p-6 rounded">
                                             <p className="font-bold text-[#5c2d16] mb-2">Storage</p>
-                                            <p className="text-gray-700">{product.storageInstructions}</p>
+                                            {Array.isArray(product.storageInstructions) ? (
+                                                <ul className="list-disc list-inside space-y-2">
+                                                    {product.storageInstructions.map((item, idx) => (
+                                                        <li key={idx} className="text-gray-700">{item}</li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <p className="text-gray-700">{product.storageInstructions}</p>
+                                            )}
                                         </div>
                                     )}
 
-                                    {product.contraindications && product.contraindications.length > 0 && (
+                                    {product.contraindications && (
+                                        (Array.isArray(product.contraindications) && product.contraindications.length > 0) || 
+                                        (typeof product.contraindications === 'string' && product.contraindications.trim() !== '')
+                                    ) && (
                                         <div className="mt-8">
                                             <div className="bg-red-50 border-l-4 border-red-600 p-6 rounded mb-6">
                                                 <p className="font-bold text-red-900 mb-2">⚠️ Precautions</p>
                                                 <p className="text-red-800 text-sm">Please read carefully and consult your healthcare provider if needed.</p>
                                             </div>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                {product.contraindications.map((item, idx) => (
-                                                    <div key={idx} className="border border-red-200 rounded-lg p-4 bg-red-50">
-                                                        <p className="font-bold text-red-900 mb-1">{item.name}</p>
-                                                        <p className="text-sm text-red-800">{item.description}</p>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                            {Array.isArray(product.contraindications) ? (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    {product.contraindications.map((item, idx) => (
+                                                        <div key={idx} className="border border-red-200 rounded-lg p-4 bg-red-50">
+                                                            <p className="text-red-800 leading-relaxed">{item}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="border border-red-200 rounded-lg p-4 bg-red-50">
+                                                    <p className="text-red-800 leading-relaxed whitespace-pre-line">{product.contraindications}</p>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
-                                </div>
-                            )}
+                                    </div>
+                                )}
 
                             {/* Specifications Tab */}
                             {activeTab === 'specifications' && (
@@ -1251,9 +1351,14 @@ const ProductDetails = () => {
                                             </>
                                         )}
                                         {product.formulation && (
+                                            (Array.isArray(product.formulation) && product.formulation.length > 0) || 
+                                            (typeof product.formulation === 'string' && product.formulation.trim() !== '')
+                                        ) && (
                                             <>
                                                 <dt className="text-sm text-gray-500">Form</dt>
-                                                <dd className="text-sm font-medium text-[#5c2d16]">{product.formulation}</dd>
+                                                <dd className="text-sm font-medium text-[#5c2d16]">
+                                                    {Array.isArray(product.formulation) ? product.formulation.join(', ') : product.formulation}
+                                                </dd>
                                             </>
                                         )}
                                         {product.potency && (
@@ -1263,9 +1368,14 @@ const ProductDetails = () => {
                                             </>
                                         )}
                                         {product.shelfLife && (
+                                            (Array.isArray(product.shelfLife) && product.shelfLife.length > 0) || 
+                                            (typeof product.shelfLife === 'string' && product.shelfLife.trim() !== '')
+                                        ) && (
                                             <>
                                                 <dt className="text-sm text-gray-500">Shelf Life</dt>
-                                                <dd className="text-sm font-medium text-[#5c2d16]">{product.shelfLife}</dd>
+                                                <dd className="text-sm font-medium text-[#5c2d16]">
+                                                    {Array.isArray(product.shelfLife) ? product.shelfLife.join(', ') : product.shelfLife}
+                                                </dd>
                                             </>
                                         )}
                                         {product.processingMethod && (
@@ -1296,55 +1406,62 @@ const ProductDetails = () => {
 
                                     {/* Suitability */}
                                     {((product.ageGroup && product.ageGroup.length > 0) ||
-                                      (product.gender && product.gender.length > 0) ||
-                                      (product.season && product.season.length > 0) ||
-                                      (product.timeOfDay && product.timeOfDay.length > 0)) && (
-                                        <div className="mt-8 pt-8 border-t">
-                                            <h4 className="font-bold mb-4">Suitable For</h4>
-                                            <div className="grid grid-cols-4 gap-4">
-                                                {product.ageGroup && product.ageGroup.length > 0 && (
-                                                    <div>
-                                                        <p className="text-xs text-gray-500 mb-2">Age Group</p>
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {product.ageGroup.map((item, i) => (
-                                                                <span key={i} className="bg-gray-100 px-2 py-1 rounded text-xs">{item}</span>
-                                                            ))}
+                                        (product.gender && product.gender.length > 0) ||
+                                        (product.season && product.season.length > 0) ||
+                                        (product.timeOfDay && product.timeOfDay.length > 0)) && (
+                                            <div className="mt-8 pt-8 border-t">
+                                                <h4 className="font-bold mb-4">Suitable For</h4>
+                                                <div className="grid grid-cols-4 gap-4">
+                                                    {product.ageGroup && product.ageGroup.length > 0 && (
+                                                        <div>
+                                                            <p className="text-xs text-gray-500 mb-2">Age Group</p>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {product.ageGroup.map((item, i) => (
+                                                                    <span key={i} className="bg-gray-100 px-2 py-1 rounded text-xs">{item}</span>
+                                                                ))}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                )}
-                                                {product.gender && product.gender.length > 0 && (
-                                                    <div>
-                                                        <p className="text-xs text-gray-500 mb-2">Gender</p>
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {product.gender.map((item, i) => (
-                                                                <span key={i} className="bg-gray-100 px-2 py-1 rounded text-xs">{item}</span>
-                                                            ))}
+                                                    )}
+                                                    {product.gender && (
+                                                        (Array.isArray(product.gender) && product.gender.length > 0) || 
+                                                        (typeof product.gender === 'string' && product.gender.trim() !== '')
+                                                    ) && (
+                                                        <div>
+                                                            <p className="text-xs text-gray-500 mb-2">Gender</p>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {Array.isArray(product.gender) ? (
+                                                                    product.gender.map((item, i) => (
+                                                                        <span key={i} className="bg-gray-100 px-2 py-1 rounded text-xs">{item}</span>
+                                                                    ))
+                                                                ) : (
+                                                                    <span className="bg-gray-100 px-2 py-1 rounded text-xs">{product.gender}</span>
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                )}
-                                                {product.season && product.season.length > 0 && (
-                                                    <div>
-                                                        <p className="text-xs text-gray-500 mb-2">Season</p>
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {product.season.map((item, i) => (
-                                                                <span key={i} className="bg-gray-100 px-2 py-1 rounded text-xs">{item}</span>
-                                                            ))}
+                                                    )}
+                                                    {product.season && product.season.length > 0 && (
+                                                        <div>
+                                                            <p className="text-xs text-gray-500 mb-2">Season</p>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {product.season.map((item, i) => (
+                                                                    <span key={i} className="bg-gray-100 px-2 py-1 rounded text-xs">{item}</span>
+                                                                ))}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                )}
-                                                {product.timeOfDay && product.timeOfDay.length > 0 && (
-                                                    <div>
-                                                        <p className="text-xs text-gray-500 mb-2">Best Time</p>
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {product.timeOfDay.map((item, i) => (
-                                                                <span key={i} className="bg-gray-100 px-2 py-1 rounded text-xs">{item}</span>
-                                                            ))}
+                                                    )}
+                                                    {product.timeOfDay && product.timeOfDay.length > 0 && (
+                                                        <div>
+                                                            <p className="text-xs text-gray-500 mb-2">Best Time</p>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {product.timeOfDay.map((item, i) => (
+                                                                    <span key={i} className="bg-gray-100 px-2 py-1 rounded text-xs">{item}</span>
+                                                                ))}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                )}
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
                                 </div>
                             )}
 
@@ -1365,8 +1482,8 @@ const ProductDetails = () => {
                                                         <div key={star} className="flex items-center gap-3 mb-2">
                                                             <span className="text-sm w-12">{star} star</span>
                                                             <div className="flex-1 bg-gray-200 h-2 rounded-full">
-                                                                <div 
-                                                                    className="bg-yellow-500 h-full rounded-full" 
+                                                                <div
+                                                                    className="bg-yellow-500 h-full rounded-full"
                                                                     style={{ width: `${product.ratingStats.distributionPercentage[star] || 0}%` }}
                                                                 ></div>
                                                             </div>

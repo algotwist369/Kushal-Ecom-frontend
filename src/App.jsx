@@ -84,7 +84,7 @@ const App = () => {
   return (
     <>
       <Toaster
-        position="bottom-left"
+        position="bottom-right"
         toastOptions={{
           duration: 3000,
           style: {

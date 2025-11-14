@@ -1,125 +1,216 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { createProduct, getAllCategories } from '../../../services/adminService';
-import api from '../../../api/axiosConfig';
+import { createProduct, getAllCategories, getAllProducts } from '../../../services/adminService';
 import BackButton from '../../../components/common/BackButton';
+import api from '../../../api/axiosConfig';
+
+const AGE_GROUP_OPTIONS = [
+    { value: 'child', label: 'Child' },
+    { value: 'teen', label: 'Teen' },
+    { value: 'adult', label: 'Adult' },
+    { value: 'senior', label: 'Senior' }
+];
+
+const SEASON_OPTIONS = [
+    { value: 'summer', label: 'Summer' },
+    { value: 'monsoon', label: 'Monsoon' },
+    { value: 'winter', label: 'Winter' },
+    { value: 'all', label: 'All Season' }
+];
+
+const TIME_OF_DAY_OPTIONS = [
+    { value: 'morning', label: 'Morning' },
+    { value: 'afternoon', label: 'Afternoon' },
+    { value: 'evening', label: 'Evening' },
+    { value: 'night', label: 'Night' },
+    { value: 'anytime', label: 'Anytime' }
+];
+
+const GENDER_OPTIONS = [
+    { value: '', label: 'Select Gender / Applicability' },
+    { value: 'male', label: 'Male' },
+    { value: 'female', label: 'Female' },
+    { value: 'unisex', label: 'Unisex' }
+];
+
+const initialFormState = {
+    name: '',
+    description: '',
+    price: '',
+    discountPrice: '',
+    stock: '',
+    category: '',
+    images: [''],
+    attributes: [{ key: '', value: '' }],
+    isActive: true,
+    // Ayurvedic-specific fields - object arrays for ingredients, benefits, etc.
+    ingredients: [{ image: '', name: '', description: '' }],
+    benefits: [{ image: '', name: '', description: '' }],
+    dosage: '',
+    contraindications: [{ image: '', name: '', description: '' }],
+    shelfLife: '',
+    storageInstructions: '',
+    manufacturer: '',
+    batchNumber: '',
+    expiryDate: '',
+    certification: [{ image: '', name: '', description: '' }],
+    origin: '',
+    processingMethod: '',
+    potency: '',
+    formulation: '',
+    ageGroup: [],
+    gender: [],
+    season: [],
+    timeOfDay: [],
+    faq: [{ question: '', answer: '' }],
+    howToUse: [{ image: '', name: '', description: '' }],
+    howToStore: [{ image: '', name: '', description: '' }],
+    howToConsume: [{ image: '', name: '', description: '' }],
+    packOptions: [{ packSize: '', packPrice: '', savingsPercent: '', label: '', image: '' }],
+    freeProducts: [{ product: '', minQuantity: '', quantity: '' }],
+    bundleWith: [{ product: '', bundlePrice: '', savingsAmount: '' }],
+    offerText: '',
+    isOnOffer: false,
+    freeShipping: false,
+    shippingCost: 0,
+    minOrderForFreeShipping: 0,
+    metaTitle: '',
+    metaDescription: '',
+    keywords: ['']
+};
 
 const AdminProductCreate = () => {
     const navigate = useNavigate();
     const [categories, setCategories] = useState([]);
+    const [products, setProducts] = useState([]);
+    const [formData, setFormData] = useState(initialFormState);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [currentStep, setCurrentStep] = useState(0);
+    
+    // Refs to prevent duplicate API calls
+    const fetchingRef = useRef(false);
+    const fetchingProductsRef = useRef(false);
+    const abortControllerRef = useRef(null);
+    const abortProductsControllerRef = useRef(null);
 
-    const [formData, setFormData] = useState({
-        // Basic fields
-        name: '',
-        description: '',
-        price: '',
-        discountPrice: '',
-        stock: '',
-        category: '',
-        images: [''],
-        attributes: {},
-        isActive: true,
+    const fetchCategories = useCallback(async () => {
+        if (fetchingRef.current) return;
+        
+        fetchingRef.current = true;
+        abortControllerRef.current = new AbortController();
+        
+        try {
+            const result = await getAllCategories();
+            if (result.success) {
+                const categoriesData = result.data.categories || result.data;
+                setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+            } else {
+                toast.error('Failed to fetch categories');
+            }
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                toast.error('Failed to fetch categories');
+            }
+        } finally {
+            fetchingRef.current = false;
+            abortControllerRef.current = null;
+        }
+    }, []);
 
-        // Ayurvedic-specific fields
-        ingredients: [{ image: '', name: '', description: '' }],
-        benefits: [{ image: '', name: '', description: '' }],
-        dosage: '',
-        contraindications: [{ image: '', name: '', description: '' }],
-        shelfLife: '',
-        storageInstructions: '',
-        manufacturer: '',
-        batchNumber: '',
-        expiryDate: '',
-        certification: [{ image: '', name: '', description: '' }],
-        origin: '',
-        processingMethod: '',
-        potency: '',
-        formulation: '',
-        ageGroup: [],
-        gender: [],
-        season: [],
-        timeOfDay: [],
-        faq: [{ question: '', answer: '' }],
-        howToUse: [{ image: '', name: '', description: '' }],
-        howToStore: [{ image: '', name: '', description: '' }],
-        howToConsume: [{ image: '', name: '', description: '' }],
-
-        // Pack & Combo Options
-        packOptions: [{ packSize: '', packPrice: '', savingsPercent: '', label: '', image: '' }],
-        freeProducts: [{ product: '', minQuantity: '', quantity: '' }],
-        bundleWith: [{ product: '', bundlePrice: '', savingsAmount: '' }],
-        offerText: '',
-        isOnOffer: false,
-
-        // Shipping Options
-        freeShipping: false,
-        shippingCost: 0,
-        minOrderForFreeShipping: 0,
-
-        // SEO fields
-        metaTitle: '',
-        metaDescription: '',
-        keywords: ['']
-    });
+    const fetchProducts = useCallback(async () => {
+        if (fetchingProductsRef.current) return;
+        
+        fetchingProductsRef.current = true;
+        abortProductsControllerRef.current = new AbortController();
+        
+        try {
+            const result = await getAllProducts({ limit: 1000, isActive: true });
+            if (result.success) {
+                const productsData = result.data.products || result.data || [];
+                setProducts(Array.isArray(productsData) ? productsData : []);
+            } else {
+                console.error('Failed to fetch products');
+            }
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                console.error('Failed to fetch products:', err);
+            }
+        } finally {
+            fetchingProductsRef.current = false;
+            abortProductsControllerRef.current = null;
+        }
+    }, []);
 
     useEffect(() => {
         fetchCategories();
+        fetchProducts();
+        
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+            if (abortProductsControllerRef.current) {
+                abortProductsControllerRef.current.abort();
+            }
+        };
+    }, [fetchCategories, fetchProducts]);
+
+    const handleInputChange = useCallback((event) => {
+        const { name, value, type, checked } = event.target;
+        setFormData((prev) => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value
+        }));
     }, []);
 
-    const fetchCategories = async () => {
-        const result = await getAllCategories();
-        if (result.success) {
-            // Backend returns { categories: [...], total, page, pages }
-            const categoriesData = result.data.categories || result.data;
-            setCategories(Array.isArray(categoriesData) ? categoriesData : []);
-        } else {
-            setCategories([]);
-            toast.error('Failed to fetch categories');
-        }
-    };
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({
+    const updateListValue = useCallback((field, index, value) => {
+        setFormData((prev) => ({
             ...prev,
-            [name]: value
+            [field]: prev[field].map((item, i) => (i === index ? value : item))
         }));
-    };
+    }, []);
 
-    const handleArrayChange = (field, index, value) => {
-        setFormData(prev => ({
-            ...prev,
-            [field]: prev[field].map((item, i) => i === index ? value : item)
-        }));
-    };
-
-    const handleObjectArrayChange = (field, index, key, value) => {
-        setFormData(prev => ({
-            ...prev,
-            [field]: prev[field].map((item, i) =>
-                i === index ? { ...item, [key]: value } : item
-            )
-        }));
-    };
-
-    const addArrayItem = (field, defaultValue = '') => {
-        setFormData(prev => ({
+    const addListItem = useCallback((field, defaultValue) => {
+        setFormData((prev) => ({
             ...prev,
             [field]: [...prev[field], defaultValue]
         }));
-    };
+    }, []);
 
-    const addObjectArrayItem = (field, defaultValue) => {
-        setFormData(prev => ({
+    const removeListItem = useCallback((field, index) => {
+        setFormData((prev) => ({
+            ...prev,
+            [field]: prev[field].filter((_, i) => i !== index)
+        }));
+    }, []);
+
+    const updateObjectList = useCallback((field, index, key, value) => {
+        setFormData((prev) => ({
+            ...prev,
+            [field]: prev[field].map((item, i) => (i === index ? { ...item, [key]: value } : item))
+        }));
+    }, []);
+
+    const addObjectListItem = useCallback((field, defaultValue) => {
+        setFormData((prev) => ({
             ...prev,
             [field]: [...prev[field], defaultValue]
         }));
-    };
+    }, []);
 
-    const handlePackOptionImageUpload = async (packIndex, file) => {
+    const handleToggleListValue = useCallback((field, value) => {
+        const normalized = value.toLowerCase();
+        setFormData((prev) => ({
+            ...prev,
+            [field]: prev[field].includes(normalized)
+                ? prev[field].filter((item) => item !== normalized)
+                : [...prev[field], normalized]
+        }));
+    }, []);
+
+    const handlePackOptionImageUpload = useCallback(async (packIndex, file) => {
         if (!file) return;
         
         try {
@@ -131,1486 +222,1184 @@ const AdminProductCreate = () => {
             });
             
             if (response.data.images && response.data.images.length > 0) {
-                handleObjectArrayChange('packOptions', packIndex, 'image', response.data.images[0]);
+                updateObjectList('packOptions', packIndex, 'image', response.data.images[0]);
                 toast.success('Pack option image uploaded successfully');
             }
         } catch (error) {
             console.error('Error uploading pack option image:', error);
             toast.error('Failed to upload pack option image');
         }
-    };
+    }, [updateObjectList]);
 
-    const removeArrayItem = (field, index) => {
-        setFormData(prev => ({
-            ...prev,
-            [field]: prev[field].filter((_, i) => i !== index)
-        }));
-    };
+    const attributePairs = useMemo(() => formData.attributes, [formData.attributes]);
 
-    const handleMultiSelect = (field, value) => {
-        setFormData(prev => ({
-            ...prev,
-            [field]: prev[field].includes(value)
-                ? prev[field].filter(v => v !== value)
-                : [...prev[field], value]
-        }));
-    };
-
-    const handleAttributeChange = (key, value) => {
-        setFormData(prev => ({
-            ...prev,
-            attributes: {
-                ...prev.attributes,
-                [key]: value
-            }
-        }));
-    };
-
-    const removeAttribute = (key) => {
-        setFormData(prev => {
-            const newAttributes = { ...prev.attributes };
-            delete newAttributes[key];
-            return {
-                ...prev,
-                attributes: newAttributes
-            };
-        });
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleSubmit = useCallback(async (event) => {
+        event.preventDefault();
         setError('');
-        setLoading(true);
 
-        try {
-            // Clean up data before submission
-            // Note: slug is auto-generated from name on the backend, so we don't include it here
-            const submitData = {
-                ...formData,
-                price: Number(formData.price),
-                discountPrice: formData.discountPrice ? Number(formData.discountPrice) : undefined,
-                stock: Number(formData.stock),
-                images: formData.images.filter(img => img.trim() !== ''),
-                keywords: formData.keywords.filter(k => k.trim() !== ''),
-                ingredients: formData.ingredients.filter(i => i.name || i.description),
-                benefits: formData.benefits.filter(b => b.name || b.description),
-                contraindications: formData.contraindications.filter(c => c.name || c.description),
-                certification: formData.certification.filter(c => c.name || c.description),
-                howToUse: formData.howToUse.filter(h => h.name || h.description),
-                howToStore: formData.howToStore.filter(h => h.name || h.description),
-                howToConsume: formData.howToConsume.filter(h => h.name || h.description),
-                faq: formData.faq.filter(f => f.question && f.answer),
-                packOptions: formData.packOptions.filter(p => p.packSize && p.packPrice).map(p => ({
-                    ...p,
-                    packSize: Number(p.packSize),
-                    packPrice: Number(p.packPrice),
-                    savingsPercent: p.savingsPercent ? Number(p.savingsPercent) : undefined
-                })),
-                freeProducts: formData.freeProducts.filter(f => f.product && f.minQuantity && f.quantity).map(f => ({
-                    product: f.product,
-                    minQuantity: Number(f.minQuantity),
-                    quantity: Number(f.quantity)
-                })),
-                bundleWith: formData.bundleWith.filter(b => b.product && b.bundlePrice).map(b => ({
-                    product: b.product,
-                    bundlePrice: Number(b.bundlePrice),
-                    savingsAmount: b.savingsAmount ? Number(b.savingsAmount) : undefined
-                }))
+        // Get latest formData using functional update pattern
+        let submitData;
+        setFormData(prev => {
+            if (!prev.price || Number(prev.price) <= 0) {
+                toast.error('Price must be greater than zero.');
+                return prev;
+            }
+
+            if (!prev.stock || Number(prev.stock) < 0) {
+                toast.error('Stock must be zero or a positive number.');
+                return prev;
+            }
+
+            const attributes = {};
+            prev.attributes
+                .filter(({ key, value }) => key.trim() && value.trim())
+                .forEach(({ key, value }) => {
+                    attributes[key.trim()] = value.trim();
+                });
+
+            const numericOrUndefined = (value) => {
+                if (value === '' || value === null || value === undefined) return undefined;
+                const parsed = Number(value);
+                return Number.isNaN(parsed) ? undefined : parsed;
             };
 
-            const createPromise = createProduct(submitData);
+            submitData = {
+                name: prev.name.trim(),
+                description: prev.description.trim() || undefined,
+                price: Number(prev.price),
+                discountPrice: numericOrUndefined(prev.discountPrice),
+                stock: Number(prev.stock),
+                category: prev.category,
+                images: Array.isArray(prev.images) ? prev.images.map((image) => image.trim()).filter(Boolean) : [],
+                attributes,
+                isActive: prev.isActive,
+                // Object arrays - send as-is after filtering empty objects
+                ingredients: Array.isArray(prev.ingredients) ? prev.ingredients.filter(item => item && (item.name || item.image || item.description)) : [],
+                benefits: Array.isArray(prev.benefits) ? prev.benefits.filter(item => item && (item.name || item.image || item.description)) : [],
+                contraindications: Array.isArray(prev.contraindications) ? prev.contraindications.filter(item => item && (item.name || item.image || item.description)) : [],
+                certification: Array.isArray(prev.certification) ? prev.certification.filter(item => item && (item.name || item.image || item.description)) : [],
+                howToUse: Array.isArray(prev.howToUse) ? prev.howToUse.filter(item => item && (item.name || item.image || item.description)) : [],
+                howToStore: Array.isArray(prev.howToStore) ? prev.howToStore.filter(item => item && (item.name || item.image || item.description)) : [],
+                howToConsume: Array.isArray(prev.howToConsume) ? prev.howToConsume.filter(item => item && (item.name || item.image || item.description)) : [],
+                // String fields - send as strings (empty string is valid)
+                dosage: prev.dosage?.trim() || '',
+                shelfLife: prev.shelfLife?.trim() || '',
+                storageInstructions: prev.storageInstructions?.trim() || '',
+                formulation: prev.formulation?.trim() || '',
+                metaTitle: prev.metaTitle?.trim() || '',
+                // Other string fields
+                manufacturer: prev.manufacturer.trim() || undefined,
+                batchNumber: prev.batchNumber.trim() || undefined,
+                expiryDate: prev.expiryDate || undefined,
+                origin: prev.origin.trim() || undefined,
+                processingMethod: prev.processingMethod.trim() || undefined,
+                potency: prev.potency.trim() || undefined,
+                metaDescription: prev.metaDescription.trim() || undefined,
+                // Array fields - send empty arrays if no values (controller handles empty arrays)
+                ageGroup: Array.isArray(prev.ageGroup) ? prev.ageGroup : [],
+                gender: Array.isArray(prev.gender) ? prev.gender : [],
+                season: Array.isArray(prev.season) ? prev.season : [],
+                timeOfDay: Array.isArray(prev.timeOfDay) ? prev.timeOfDay : [],
+                faq: Array.isArray(prev.faq) ? prev.faq
+                    .map(({ question, answer }) => ({ question: question.trim(), answer: answer.trim() }))
+                    .filter(({ question, answer }) => question && answer) : [],
+                keywords: Array.isArray(prev.keywords) ? prev.keywords.map((keyword) => keyword.trim()).filter(Boolean) : [],
+                packOptions: Array.isArray(prev.packOptions) ? prev.packOptions
+                    .filter(({ packSize, packPrice }) => packSize && packPrice)
+                    .map(({ packSize, packPrice, savingsPercent, label, image }) => ({
+                        packSize: Number(packSize),
+                        packPrice: Number(packPrice),
+                        savingsPercent: numericOrUndefined(savingsPercent),
+                        label: label.trim() || undefined,
+                        image: image?.trim() || undefined
+                    })) : [],
+                freeProducts: Array.isArray(prev.freeProducts) ? prev.freeProducts
+                    .filter(({ product, minQuantity, quantity }) => product && minQuantity && quantity)
+                    .map(({ product, minQuantity, quantity }) => ({
+                        product: product.trim(),
+                        minQuantity: Number(minQuantity),
+                        quantity: Number(quantity)
+                    })) : [],
+                bundleWith: Array.isArray(prev.bundleWith) ? prev.bundleWith
+                    .filter(({ product, bundlePrice }) => product && bundlePrice)
+                    .map(({ product, bundlePrice, savingsAmount }) => ({
+                        product: product.trim(),
+                        bundlePrice: Number(bundlePrice),
+                        savingsAmount: numericOrUndefined(savingsAmount)
+                    })) : [],
+                offerText: prev.offerText.trim() || undefined,
+                isOnOffer: prev.isOnOffer,
+                freeShipping: prev.freeShipping,
+                shippingCost: prev.freeShipping ? 0 : numericOrUndefined(prev.shippingCost) || 0,
+                minOrderForFreeShipping: prev.freeShipping ? 0 : numericOrUndefined(prev.minOrderForFreeShipping) || 0
+            };
+            return prev; // Return unchanged state
+        });
 
-            toast.promise(
-                createPromise,
-                {
-                    loading: 'Creating product...',
-                    success: 'Product created successfully!',
-                    error: 'Failed to create product',
-                }
-            );
+        if (!submitData) return; // Validation failed
 
-            const result = await createPromise;
-
-            if (result.success) {
-                setTimeout(() => navigate('/admin/products'), 1000);
+        setLoading(true);
+        try {
+            const response = await createProduct(submitData);
+            if (response.success) {
+                toast.success('Product created successfully!');
+                setTimeout(() => navigate('/admin/products'), 600);
             } else {
-                // Handle validation errors from backend
-                const errorMessage = result.message || 'Failed to create product';
-                setError(errorMessage);
-                // If it's a validation error with details, show them
-                if (result.errors && Array.isArray(result.errors)) {
-                    const errorDetails = result.errors.map(err => `${err.msg || err.message}`).join(', ');
-                    setError(`${errorMessage}: ${errorDetails}`);
+                const message = response.message || 'Failed to create product';
+                if (Array.isArray(response.errors) && response.errors.length) {
+                    const details = response.errors.map((err) => err.msg || err.message).join(', ');
+                    setError(`${message}: ${details}`);
+                } else {
+                    setError(message);
                 }
+                toast.error(message);
             }
-        } catch (err) {
-            const errorMessage = err.response?.data?.message || err.message || 'Failed to create product. Please try again.';
-            setError(errorMessage);
-            // Handle validation errors
-            if (err.response?.data?.errors && Array.isArray(err.response.data.errors)) {
-                const errorDetails = err.response.data.errors.map(err => `${err.msg || err.message}`).join(', ');
-                setError(`${errorMessage}: ${errorDetails}`);
+        } catch (submitError) {
+            const message = submitError.response?.data?.message || submitError.message || 'Failed to create product. Please try again.';
+            if (Array.isArray(submitError.response?.data?.errors)) {
+                const details = submitError.response.data.errors.map((err) => err.msg || err.message).join(', ');
+                setError(`${message}: ${details}`);
+            } else {
+                setError(message);
             }
+            toast.error(message);
         } finally {
             setLoading(false);
         }
-    };
+    }, [navigate]);
 
-    return (
-        <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-5xl mx-auto">
-                <BackButton to="/admin/products" label="Back to Products" />
+    const goToStep = useCallback((step) => {
+        setCurrentStep(step);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
 
-                {/* Header */}
-                <div className="mb-8">
-                    <h1 className="text-4xl font-bold text-[#5c2d16]">Create New Product</h1>
-                    <p className="text-gray-600 mt-2">Add a new product to your store</p>
-                </div>
+    const handleNavigateBack = useCallback(() => {
+        navigate('/admin/products');
+    }, [navigate]);
 
-                {/* Error Message */}
-                {error && (
-                    <div className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6">
-                        {error}
+    // Memoize static options
+    const genderOptions = useMemo(() => GENDER_OPTIONS.filter(opt => opt.value !== ''), []);
+    const categoryOptions = useMemo(() => categories, [categories]);
+    const productOptions = useMemo(() => products, [products]);
+
+    const sections = useMemo(() => [
+        {
+            id: 'basic',
+            title: 'Basic Information',
+            description: 'Core product details, pricing, inventory & media.',
+            content: (
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Product Name <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            name="name"
+                            value={formData.name}
+                            onChange={handleInputChange}
+                            placeholder="e.g., Ashwagandha Vitality Capsules"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                            required
+                            disabled={loading}
+                        />
                     </div>
-                )}
 
-                {/* Form */}
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Basic Information */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Basic Information</h2>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                        <textarea
+                            name="description"
+                            value={formData.description}
+                            onChange={handleInputChange}
+                            placeholder="Enter product description"
+                            rows="4"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                            disabled={loading}
+                        />
+                    </div>
 
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Product Name <span className="text-red-500">*</span>
-                                </label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Price (₹) <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="number"
+                                name="price"
+                                value={formData.price}
+                                onChange={handleInputChange}
+                                min="0"
+                                step="0.01"
+                                placeholder="899"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                required
+                                disabled={loading}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Discount Price (₹)</label>
+                            <input
+                                type="number"
+                                name="discountPrice"
+                                value={formData.discountPrice}
+                                onChange={handleInputChange}
+                                min="0"
+                                step="0.01"
+                                placeholder="749"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                disabled={loading}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Stock <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="number"
+                                name="stock"
+                                value={formData.stock}
+                                onChange={handleInputChange}
+                                min="0"
+                                placeholder="120"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                required
+                                disabled={loading}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Category <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                name="category"
+                                value={formData.category}
+                                onChange={handleInputChange}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                required
+                                disabled={loading}
+                            >
+                                <option value="">Select Category</option>
+                                {categoryOptions.map((category) => (
+                                    <option key={category._id} value={category._id}>
+                                        {category.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Product Images</label>
+                        {formData.images.map((image, index) => (
+                            <div key={index} className="flex gap-2 mb-2">
                                 <input
-                                    type="text"
-                                    name="name"
-                                    value={formData.name}
-                                    onChange={handleChange}
-                                    placeholder="e.g., Kapiva Dia Free Juice 1L"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                    required
+                                    type="url"
+                                    value={image}
+                                    onChange={(event) => updateListValue('images', index, event.target.value)}
+                                    placeholder="https://cdn.example.com/product.jpg"
+                                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                                     disabled={loading}
                                 />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Description
-                                </label>
-                                <textarea
-                                    name="description"
-                                    value={formData.description}
-                                    onChange={handleChange}
-                                    placeholder="Enter product description..."
-                                    rows="4"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                    disabled={loading}
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Price (₹) <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="number"
-                                        name="price"
-                                        value={formData.price}
-                                        onChange={handleChange}
-                                        placeholder="999"
-                                        min="0"
-                                        step="0.01"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        required
-                                        disabled={loading}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Discount Price (₹)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        name="discountPrice"
-                                        value={formData.discountPrice}
-                                        onChange={handleChange}
-                                        placeholder="799"
-                                        min="0"
-                                        step="0.01"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        disabled={loading}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Stock <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="number"
-                                        name="stock"
-                                        value={formData.stock}
-                                        onChange={handleChange}
-                                        placeholder="100"
-                                        min="0"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        required
-                                        disabled={loading}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Category <span className="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                        name="category"
-                                        value={formData.category}
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        required
+                                {formData.images.length > 1 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => removeListItem('images', index)}
+                                        className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
                                         disabled={loading}
                                     >
-                                        <option value="">Select Category</option>
-                                        {Array.isArray(categories) && categories.map(cat => (
-                                            <option key={cat._id} value={cat._id}>{cat.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                                        Remove
+                                    </button>
+                                )}
                             </div>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() => addListItem('images', '')}
+                            className="mt-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                            disabled={loading}
+                        >
+                            + Add Image
+                        </button>
+                    </div>
 
-                            {/* Images */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Product Images
-                                </label>
-                                {formData.images.map((img, index) => (
-                                    <div key={index} className="flex gap-2 mb-2">
-                                        <input
-                                            type="url"
-                                            value={img}
-                                            onChange={(e) => handleArrayChange('images', index, e.target.value)}
-                                            placeholder="https://example.com/image.jpg"
-                                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                            disabled={loading}
-                                        />
-                                        {formData.images.length > 1 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => removeArrayItem('images', index)}
-                                                className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                                                disabled={loading}
-                                            >
-                                                Remove
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Custom Attributes</label>
+                        <p className="text-xs text-gray-500 mb-2">Add custom key/value pairs such as weight, flavour, dimensions, etc.</p>
+                        {attributePairs.map((pair, index) => (
+                            <div key={index} className="flex flex-col md:flex-row gap-2 mb-2">
+                                <input
+                                    type="text"
+                                    value={pair.key}
+                                    onChange={(event) => updateObjectList('attributes', index, 'key', event.target.value)}
+                                    placeholder="Attribute (e.g., weight)"
+                                    className="md:w-1/3 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                    disabled={loading}
+                                />
+                                <input
+                                    type="text"
+                                    value={pair.value}
+                                    onChange={(event) => updateObjectList('attributes', index, 'value', event.target.value)}
+                                    placeholder="Value (e.g., 500g)"
+                                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                    disabled={loading}
+                                />
                                 <button
                                     type="button"
-                                    onClick={() => addArrayItem('images', '')}
-                                    className="mt-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                                    onClick={() => removeListItem('attributes', index)}
+                                    className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
                                     disabled={loading}
                                 >
-                                    + Add Image
+                                    Remove
                                 </button>
                             </div>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() => addListItem('attributes', { key: '', value: '' })}
+                            className="mt-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                            disabled={loading}
+                        >
+                            + Add Attribute
+                        </button>
+                    </div>
 
-                            {/* Attributes (Map) */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Product Attributes (Key-Value Pairs)
-                                </label>
-                                <p className="text-xs text-gray-500 mb-2">Add custom attributes like size, color, weight, etc.</p>
-                                {Object.entries(formData.attributes).map(([key, value], index) => (
-                                    <div key={index} className="flex gap-2 mb-2">
+                    <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                            type="checkbox"
+                            name="isActive"
+                            checked={formData.isActive}
+                            onChange={handleInputChange}
+                            className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                            disabled={loading}
+                        />
+                        Active (show in store)
+                    </label>
+                </div>
+            )
+        },
+        {
+            id: 'ayurvedic',
+            title: 'Ayurvedic & Product Details',
+            description: 'Document ingredients, formulation, certifications and demographic targeting.',
+            content: (
+                <div className="space-y-4">
+                    {/* Object Array Fields */}
+                    {[
+                        { label: 'Ingredients', name: 'ingredients' },
+                        { label: 'Benefits', name: 'benefits' },
+                        { label: 'Contraindications', name: 'contraindications' },
+                        { label: 'Certification', name: 'certification' }
+                    ].map(({ label, name }) => (
+                        <div key={name}>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+                            {formData[name].map((item, index) => (
+                                <div key={index} className="border border-gray-200 rounded-lg p-4 mb-3">
+                                    <div className="grid grid-cols-1 gap-3">
                                         <input
-                                            type="text"
-                                            value={key}
-                                            onChange={(e) => {
-                                                const newKey = e.target.value;
-                                                const oldValue = formData.attributes[key];
-                                                removeAttribute(key);
-                                                if (newKey) handleAttributeChange(newKey, oldValue);
-                                            }}
-                                            placeholder="Attribute name (e.g., weight)"
-                                            className="w-1/3 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                            type="url"
+                                            value={item.image || ''}
+                                            onChange={(e) => updateObjectList(name, index, 'image', e.target.value)}
+                                            placeholder="Image URL (optional)"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                                             disabled={loading}
                                         />
                                         <input
                                             type="text"
-                                            value={value}
-                                            onChange={(e) => handleAttributeChange(key, e.target.value)}
-                                            placeholder="Value (e.g., 500g)"
-                                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                            value={item.name || ''}
+                                            onChange={(e) => updateObjectList(name, index, 'name', e.target.value)}
+                                            placeholder={`${label.slice(0, -1)} name`}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                                             disabled={loading}
                                         />
+                                        <textarea
+                                            value={item.description || ''}
+                                            onChange={(e) => updateObjectList(name, index, 'description', e.target.value)}
+                                            placeholder={`${label.slice(0, -1)} description`}
+                                            rows="2"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                            disabled={loading}
+                                        />
+                                    </div>
+                                    {formData[name].length > 1 && (
                                         <button
                                             type="button"
-                                            onClick={() => removeAttribute(key)}
-                                            className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                                            onClick={() => removeListItem(name, index)}
+                                            className="mt-2 px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
                                             disabled={loading}
                                         >
                                             Remove
                                         </button>
-                                    </div>
-                                ))}
-                                <button
-                                    type="button"
-                                    onClick={() => handleAttributeChange(`attr_${Date.now()}`, '')}
-                                    className="mt-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                                    disabled={loading}
-                                >
-                                    + Add Attribute
-                                </button>
-                            </div>
-
-                            {/* Active Status */}
-                            <div className="flex items-center">
-                                <input
-                                    type="checkbox"
-                                    name="isActive"
-                                    checked={formData.isActive}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.checked }))}
-                                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                                    disabled={loading}
-                                />
-                                <label className="ml-2 block text-sm text-gray-700">
-                                    Active (Show in store)
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Ayurvedic Details */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Ayurvedic Details</h2>
-
-                        <div className="space-y-4">
-                            {/* Ingredients */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Ingredients
-                                </label>
-                                {formData.ingredients.map((ingredient, index) => (
-                                    <div key={index} className="border border-gray-200 rounded-lg p-4 mb-3">
-                                        <div className="grid grid-cols-1 gap-3">
-                                            <input
-                                                type="url"
-                                                value={ingredient.image}
-                                                onChange={(e) => handleObjectArrayChange('ingredients', index, 'image', e.target.value)}
-                                                placeholder="Image URL"
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                                disabled={loading}
-                                            />
-                                            <input
-                                                type="text"
-                                                value={ingredient.name}
-                                                onChange={(e) => handleObjectArrayChange('ingredients', index, 'name', e.target.value)}
-                                                placeholder="Ingredient Name"
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                                disabled={loading}
-                                            />
-                                            <textarea
-                                                value={ingredient.description}
-                                                onChange={(e) => handleObjectArrayChange('ingredients', index, 'description', e.target.value)}
-                                                placeholder="Description"
-                                                rows="2"
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                                disabled={loading}
-                                            />
-                                        </div>
-                                        {formData.ingredients.length > 1 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => removeArrayItem('ingredients', index)}
-                                                className="mt-2 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
-                                                disabled={loading}
-                                            >
-                                                Remove Ingredient
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
-                                <button
-                                    type="button"
-                                    onClick={() => addObjectArrayItem('ingredients', { image: '', name: '', description: '' })}
-                                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                                    disabled={loading}
-                                >
-                                    + Add Ingredient
-                                </button>
-                            </div>
-
-                            {/* Benefits */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Benefits
-                                </label>
-                                {formData.benefits.map((benefit, index) => (
-                                    <div key={index} className="border border-gray-200 rounded-lg p-4 mb-3">
-                                        <div className="grid grid-cols-1 gap-3">
-                                            <input
-                                                type="url"
-                                                value={benefit.image}
-                                                onChange={(e) => handleObjectArrayChange('benefits', index, 'image', e.target.value)}
-                                                placeholder="Image URL"
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                                disabled={loading}
-                                            />
-                                            <input
-                                                type="text"
-                                                value={benefit.name}
-                                                onChange={(e) => handleObjectArrayChange('benefits', index, 'name', e.target.value)}
-                                                placeholder="Benefit Name"
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                                disabled={loading}
-                                            />
-                                            <textarea
-                                                value={benefit.description}
-                                                onChange={(e) => handleObjectArrayChange('benefits', index, 'description', e.target.value)}
-                                                placeholder="Description"
-                                                rows="2"
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                                disabled={loading}
-                                            />
-                                        </div>
-                                        {formData.benefits.length > 1 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => removeArrayItem('benefits', index)}
-                                                className="mt-2 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
-                                                disabled={loading}
-                                            >
-                                                Remove Benefit
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
-                                <button
-                                    type="button"
-                                    onClick={() => addObjectArrayItem('benefits', { image: '', name: '', description: '' })}
-                                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                                    disabled={loading}
-                                >
-                                    + Add Benefit
-                                </button>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Dosage
-                                </label>
-                                <input
-                                    type="text"
-                                    name="dosage"
-                                    value={formData.dosage}
-                                    onChange={handleChange}
-                                    placeholder="e.g., 30ml twice daily after meals"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                    disabled={loading}
-                                />
-                            </div>
-
-                            {/* Contraindications */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Contraindications
-                                </label>
-                                {formData.contraindications.map((item, index) => (
-                                    <div key={index} className="border border-gray-200 rounded-lg p-4 mb-3">
-                                        <div className="grid grid-cols-1 gap-3">
-                                            <input
-                                                type="url"
-                                                value={item.image}
-                                                onChange={(e) => handleObjectArrayChange('contraindications', index, 'image', e.target.value)}
-                                                placeholder="Image URL"
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                                disabled={loading}
-                                            />
-                                            <input
-                                                type="text"
-                                                value={item.name}
-                                                onChange={(e) => handleObjectArrayChange('contraindications', index, 'name', e.target.value)}
-                                                placeholder="Contraindication Name"
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                                disabled={loading}
-                                            />
-                                            <textarea
-                                                value={item.description}
-                                                onChange={(e) => handleObjectArrayChange('contraindications', index, 'description', e.target.value)}
-                                                placeholder="Description"
-                                                rows="2"
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                                disabled={loading}
-                                            />
-                                        </div>
-                                        {formData.contraindications.length > 1 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => removeArrayItem('contraindications', index)}
-                                                className="mt-2 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
-                                                disabled={loading}
-                                            >
-                                                Remove
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
-                                <button
-                                    type="button"
-                                    onClick={() => addObjectArrayItem('contraindications', { image: '', name: '', description: '' })}
-                                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                                    disabled={loading}
-                                >
-                                    + Add Contraindication
-                                </button>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Manufacturer
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="manufacturer"
-                                        value={formData.manufacturer}
-                                        onChange={handleChange}
-                                        placeholder="Manufacturer name"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        disabled={loading}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Batch Number
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="batchNumber"
-                                        value={formData.batchNumber}
-                                        onChange={handleChange}
-                                        placeholder="BATCH123"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        disabled={loading}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Expiry Date
-                                    </label>
-                                    <input
-                                        type="date"
-                                        name="expiryDate"
-                                        value={formData.expiryDate}
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        disabled={loading}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Origin
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="origin"
-                                        value={formData.origin}
-                                        onChange={handleChange}
-                                        placeholder="Country/Region"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        disabled={loading}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Certification */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Certifications (FSSAI, ISO, etc.)
-                                </label>
-                                {formData.certification.map((cert, index) => (
-                                    <div key={index} className="border border-gray-200 rounded-lg p-4 mb-3">
-                                        <div className="grid grid-cols-1 gap-3">
-                                            <input
-                                                type="url"
-                                                value={cert.image}
-                                                onChange={(e) => handleObjectArrayChange('certification', index, 'image', e.target.value)}
-                                                placeholder="Certificate Image URL"
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                                disabled={loading}
-                                            />
-                                            <input
-                                                type="text"
-                                                value={cert.name}
-                                                onChange={(e) => handleObjectArrayChange('certification', index, 'name', e.target.value)}
-                                                placeholder="Certification Name (e.g., FSSAI)"
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                                disabled={loading}
-                                            />
-                                            <textarea
-                                                value={cert.description}
-                                                onChange={(e) => handleObjectArrayChange('certification', index, 'description', e.target.value)}
-                                                placeholder="Description"
-                                                rows="2"
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                                disabled={loading}
-                                            />
-                                        </div>
-                                        {formData.certification.length > 1 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => removeArrayItem('certification', index)}
-                                                className="mt-2 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
-                                                disabled={loading}
-                                            >
-                                                Remove
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
-                                <button
-                                    type="button"
-                                    onClick={() => addObjectArrayItem('certification', { image: '', name: '', description: '' })}
-                                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                                    disabled={loading}
-                                >
-                                    + Add Certification
-                                </button>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Shelf Life
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="shelfLife"
-                                        value={formData.shelfLife}
-                                        onChange={handleChange}
-                                        placeholder="12 months"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        disabled={loading}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Formulation
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="formulation"
-                                        value={formData.formulation}
-                                        onChange={handleChange}
-                                        placeholder="e.g., Juice, Powder, Oil"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        disabled={loading}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Potency
-                                    </label>
-                                    <select
-                                        name="potency"
-                                        value={formData.potency}
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        disabled={loading}
-                                    >
-                                        <option value="">Select Potency</option>
-                                        <option value="Low">Low</option>
-                                        <option value="Medium">Medium</option>
-                                        <option value="High">High</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Processing Method
-                                </label>
-                                <input
-                                    type="text"
-                                    name="processingMethod"
-                                    value={formData.processingMethod}
-                                    onChange={handleChange}
-                                    placeholder="e.g., Traditional, Modern"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                    disabled={loading}
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Storage Instructions
-                                </label>
-                                <textarea
-                                    name="storageInstructions"
-                                    value={formData.storageInstructions}
-                                    onChange={handleChange}
-                                    placeholder="Store in a cool, dry place..."
-                                    rows="2"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                    disabled={loading}
-                                />
-                            </div>
-
-                            {/* Age Group */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Age Group (Select Multiple)
-                                </label>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                    {['Child', 'Adult', 'Senior', 'All Ages'].map(age => (
-                                        <label key={age} className="flex items-center space-x-2">
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.ageGroup.includes(age)}
-                                                onChange={() => handleMultiSelect('ageGroup', age)}
-                                                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                                                disabled={loading}
-                                            />
-                                            <span className="text-sm">{age}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Gender */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Gender (Select Multiple)
-                                </label>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                                    {['Male', 'Female', 'Unisex'].map(g => (
-                                        <label key={g} className="flex items-center space-x-2">
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.gender.includes(g)}
-                                                onChange={() => handleMultiSelect('gender', g)}
-                                                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                                                disabled={loading}
-                                            />
-                                            <span className="text-sm">{g}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Season */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Season (Select Multiple)
-                                </label>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                    {['Summer', 'Winter', 'Monsoon', 'All Season'].map(s => (
-                                        <label key={s} className="flex items-center space-x-2">
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.season.includes(s)}
-                                                onChange={() => handleMultiSelect('season', s)}
-                                                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                                                disabled={loading}
-                                            />
-                                            <span className="text-sm">{s}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Time of Day */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Time of Day (Select Multiple)
-                                </label>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                    {['Morning', 'Afternoon', 'Evening', 'Night', 'Anytime'].map(t => (
-                                        <label key={t} className="flex items-center space-x-2">
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.timeOfDay.includes(t)}
-                                                onChange={() => handleMultiSelect('timeOfDay', t)}
-                                                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                                                disabled={loading}
-                                            />
-                                            <span className="text-sm">{t}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* How To Use */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-2xl font-semibold mb-4 text-gray-800">How To Use</h2>
-                        {formData.howToUse.map((item, index) => (
-                            <div key={index} className="border border-gray-200 rounded-lg p-4 mb-3">
-                                <div className="grid grid-cols-1 gap-3">
-                                    <input
-                                        type="url"
-                                        value={item.image}
-                                        onChange={(e) => handleObjectArrayChange('howToUse', index, 'image', e.target.value)}
-                                        placeholder="Image URL"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        disabled={loading}
-                                    />
-                                    <input
-                                        type="text"
-                                        value={item.name}
-                                        onChange={(e) => handleObjectArrayChange('howToUse', index, 'name', e.target.value)}
-                                        placeholder="Step Name"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        disabled={loading}
-                                    />
-                                    <textarea
-                                        value={item.description}
-                                        onChange={(e) => handleObjectArrayChange('howToUse', index, 'description', e.target.value)}
-                                        placeholder="Description"
-                                        rows="2"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        disabled={loading}
-                                    />
-                                </div>
-                                {formData.howToUse.length > 1 && (
-                                    <button
-                                        type="button"
-                                        onClick={() => removeArrayItem('howToUse', index)}
-                                        className="mt-2 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
-                                        disabled={loading}
-                                    >
-                                        Remove
-                                    </button>
-                                )}
-                            </div>
-                        ))}
-                        <button
-                            type="button"
-                            onClick={() => addObjectArrayItem('howToUse', { image: '', name: '', description: '' })}
-                            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                            disabled={loading}
-                        >
-                            + Add Step
-                        </button>
-                    </div>
-
-                    {/* How To Store */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-2xl font-semibold mb-4 text-gray-800">How To Store</h2>
-                        {formData.howToStore.map((item, index) => (
-                            <div key={index} className="border border-gray-200 rounded-lg p-4 mb-3">
-                                <div className="grid grid-cols-1 gap-3">
-                                    <input
-                                        type="url"
-                                        value={item.image}
-                                        onChange={(e) => handleObjectArrayChange('howToStore', index, 'image', e.target.value)}
-                                        placeholder="Image URL"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        disabled={loading}
-                                    />
-                                    <input
-                                        type="text"
-                                        value={item.name}
-                                        onChange={(e) => handleObjectArrayChange('howToStore', index, 'name', e.target.value)}
-                                        placeholder="Storage Tip Name"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        disabled={loading}
-                                    />
-                                    <textarea
-                                        value={item.description}
-                                        onChange={(e) => handleObjectArrayChange('howToStore', index, 'description', e.target.value)}
-                                        placeholder="Description"
-                                        rows="2"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        disabled={loading}
-                                    />
-                                </div>
-                                {formData.howToStore.length > 1 && (
-                                    <button
-                                        type="button"
-                                        onClick={() => removeArrayItem('howToStore', index)}
-                                        className="mt-2 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
-                                        disabled={loading}
-                                    >
-                                        Remove
-                                    </button>
-                                )}
-                            </div>
-                        ))}
-                        <button
-                            type="button"
-                            onClick={() => addObjectArrayItem('howToStore', { image: '', name: '', description: '' })}
-                            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                            disabled={loading}
-                        >
-                            + Add Storage Tip
-                        </button>
-                    </div>
-
-                    {/* How To Consume */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-2xl font-semibold mb-4 text-gray-800">How To Consume</h2>
-                        {formData.howToConsume.map((item, index) => (
-                            <div key={index} className="border border-gray-200 rounded-lg p-4 mb-3">
-                                <div className="grid grid-cols-1 gap-3">
-                                    <input
-                                        type="url"
-                                        value={item.image}
-                                        onChange={(e) => handleObjectArrayChange('howToConsume', index, 'image', e.target.value)}
-                                        placeholder="Image URL"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        disabled={loading}
-                                    />
-                                    <input
-                                        type="text"
-                                        value={item.name}
-                                        onChange={(e) => handleObjectArrayChange('howToConsume', index, 'name', e.target.value)}
-                                        placeholder="Consumption Method Name"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        disabled={loading}
-                                    />
-                                    <textarea
-                                        value={item.description}
-                                        onChange={(e) => handleObjectArrayChange('howToConsume', index, 'description', e.target.value)}
-                                        placeholder="Description"
-                                        rows="2"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        disabled={loading}
-                                    />
-                                </div>
-                                {formData.howToConsume.length > 1 && (
-                                    <button
-                                        type="button"
-                                        onClick={() => removeArrayItem('howToConsume', index)}
-                                        className="mt-2 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
-                                        disabled={loading}
-                                    >
-                                        Remove
-                                    </button>
-                                )}
-                            </div>
-                        ))}
-                        <button
-                            type="button"
-                            onClick={() => addObjectArrayItem('howToConsume', { image: '', name: '', description: '' })}
-                            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                            disabled={loading}
-                        >
-                            + Add Consumption Method
-                        </button>
-                    </div>
-
-                    {/* FAQ */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-2xl font-semibold mb-4 text-gray-800">FAQ</h2>
-                        {formData.faq.map((item, index) => (
-                            <div key={index} className="border border-gray-200 rounded-lg p-4 mb-3">
-                                <div className="grid grid-cols-1 gap-3">
-                                    <input
-                                        type="text"
-                                        value={item.question}
-                                        onChange={(e) => handleObjectArrayChange('faq', index, 'question', e.target.value)}
-                                        placeholder="Question"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        disabled={loading}
-                                    />
-                                    <textarea
-                                        value={item.answer}
-                                        onChange={(e) => handleObjectArrayChange('faq', index, 'answer', e.target.value)}
-                                        placeholder="Answer"
-                                        rows="2"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        disabled={loading}
-                                    />
-                                </div>
-                                {formData.faq.length > 1 && (
-                                    <button
-                                        type="button"
-                                        onClick={() => removeArrayItem('faq', index)}
-                                        className="mt-2 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
-                                        disabled={loading}
-                                    >
-                                        Remove
-                                    </button>
-                                )}
-                            </div>
-                        ))}
-                        <button
-                            type="button"
-                            onClick={() => addObjectArrayItem('faq', { question: '', answer: '' })}
-                            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                            disabled={loading}
-                        >
-                            + Add FAQ
-                        </button>
-                    </div>
-
-                    {/* Pack & Combo Options */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Pack & Combo Options</h2>
-
-                        {/* Pack Options */}
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Pack Options
-                            </label>
-                            <p className="text-xs text-gray-500 mb-3">Offer multi-pack deals with special pricing</p>
-                            {formData.packOptions.map((pack, index) => (
-                                <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
-                                    <div>
-                                        <label className="block text-xs text-gray-600 mb-1">Pack Size *</label>
-                                        <input
-                                            type="number"
-                                            placeholder="e.g., 2"
-                                            value={pack.packSize}
-                                            onChange={(e) => handleObjectArrayChange('packOptions', index, 'packSize', e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                            disabled={loading}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-600 mb-1">Pack Price (₹) *</label>
-                                        <input
-                                            type="number"
-                                            placeholder="e.g., 1398"
-                                            value={pack.packPrice}
-                                            onChange={(e) => handleObjectArrayChange('packOptions', index, 'packPrice', e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                            disabled={loading}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-600 mb-1">Savings %</label>
-                                        <input
-                                            type="number"
-                                            placeholder="e.g., 10"
-                                            value={pack.savingsPercent}
-                                            onChange={(e) => handleObjectArrayChange('packOptions', index, 'savingsPercent', e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                            disabled={loading}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-600 mb-1">Label</label>
-                                        <input
-                                            type="text"
-                                            placeholder="e.g., Family Pack"
-                                            value={pack.label}
-                                            onChange={(e) => handleObjectArrayChange('packOptions', index, 'label', e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                            disabled={loading}
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-2">
-                                        <label className="block text-xs text-gray-600 mb-1">Pack Image</label>
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                onChange={(e) => handlePackOptionImageUpload(index, e.target.files[0])}
-                                                className="hidden"
-                                                id={`pack-image-${index}`}
-                                                disabled={loading}
-                                            />
-                                            <label
-                                                htmlFor={`pack-image-${index}`}
-                                                className="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 cursor-pointer text-xs"
-                                            >
-                                                Upload
-                                            </label>
-                                            {pack.image && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleObjectArrayChange('packOptions', index, 'image', '')}
-                                                    className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-xs"
-                                                    disabled={loading}
-                                                >
-                                                    Clear
-                                                </button>
-                                            )}
-                                        </div>
-                                        {pack.image && (
-                                            <div className="mt-2">
-                                                <img
-                                                    src={pack.image}
-                                                    alt="Pack preview"
-                                                    className="w-16 h-16 object-cover rounded border"
-                                                />
-                                            </div>
-                                        )}
-                                        <button
-                                            type="button"
-                                            onClick={() => removeArrayItem('packOptions', index)}
-                                            className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-xs"
-                                            disabled={loading}
-                                        >
-                                            Remove Pack
-                                        </button>
-                                    </div>
+                                    )}
                                 </div>
                             ))}
                             <button
                                 type="button"
-                                onClick={() => addObjectArrayItem('packOptions', { packSize: '', packPrice: '', savingsPercent: '', label: '', image: '' })}
+                                onClick={() => addObjectListItem(name, { image: '', name: '', description: '' })}
                                 className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
                                 disabled={loading}
                             >
-                                + Add Pack Option
+                                + Add {label}
                             </button>
                         </div>
+                    ))}
 
-                        {/* Free Products */}
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Free Products (Buy X Get Y Free)
-                            </label>
-                            <p className="text-xs text-gray-500 mb-3">Offer free products when customers buy a certain quantity</p>
-                            {formData.freeProducts.map((item, index) => (
-                                <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
-                                    <div>
-                                        <label className="block text-xs text-gray-600 mb-1">Free Product ID</label>
-                                        <input
-                                            type="text"
-                                            placeholder="Product ID"
-                                            value={item.product}
-                                            onChange={(e) => handleObjectArrayChange('freeProducts', index, 'product', e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                            disabled={loading}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-600 mb-1">Min Quantity to Buy</label>
-                                        <input
-                                            type="number"
-                                            placeholder="e.g., 2"
-                                            value={item.minQuantity}
-                                            onChange={(e) => handleObjectArrayChange('freeProducts', index, 'minQuantity', e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                            disabled={loading}
-                                        />
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <div className="flex-1">
-                                            <label className="block text-xs text-gray-600 mb-1">Free Quantity</label>
-                                            <input
-                                                type="number"
-                                                placeholder="e.g., 1"
-                                                value={item.quantity}
-                                                onChange={(e) => handleObjectArrayChange('freeProducts', index, 'quantity', e.target.value)}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                                disabled={loading}
-                                            />
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => removeArrayItem('freeProducts', index)}
-                                            className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 self-end"
-                                            disabled={loading}
-                                        >
-                                            ×
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                            <button
-                                type="button"
-                                onClick={() => addObjectArrayItem('freeProducts', { product: '', minQuantity: '', quantity: '' })}
-                                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                                disabled={loading}
-                            >
-                                + Add Free Product
-                            </button>
-                        </div>
-
-                        {/* Bundle With */}
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Bundle With Other Products
-                            </label>
-                            <p className="text-xs text-gray-500 mb-3">Create bundle deals with other products</p>
-                            {formData.bundleWith.map((item, index) => (
-                                <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
-                                    <div>
-                                        <label className="block text-xs text-gray-600 mb-1">Bundle Product ID</label>
-                                        <input
-                                            type="text"
-                                            placeholder="Product ID"
-                                            value={item.product}
-                                            onChange={(e) => handleObjectArrayChange('bundleWith', index, 'product', e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                            disabled={loading}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-600 mb-1">Bundle Price (₹)</label>
-                                        <input
-                                            type="number"
-                                            placeholder="e.g., 1499"
-                                            value={item.bundlePrice}
-                                            onChange={(e) => handleObjectArrayChange('bundleWith', index, 'bundlePrice', e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                            disabled={loading}
-                                        />
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <div className="flex-1">
-                                            <label className="block text-xs text-gray-600 mb-1">Savings (₹)</label>
-                                            <input
-                                                type="number"
-                                                placeholder="e.g., 200"
-                                                value={item.savingsAmount}
-                                                onChange={(e) => handleObjectArrayChange('bundleWith', index, 'savingsAmount', e.target.value)}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                                disabled={loading}
-                                            />
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => removeArrayItem('bundleWith', index)}
-                                            className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 self-end"
-                                            disabled={loading}
-                                        >
-                                            ×
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                            <button
-                                type="button"
-                                onClick={() => addObjectArrayItem('bundleWith', { product: '', bundlePrice: '', savingsAmount: '' })}
-                                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                                disabled={loading}
-                            >
-                                + Add Bundle Option
-                            </button>
-                        </div>
-
-                        {/* Offer Text */}
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Offer Text (e.g., "Buy 2 Get 1 Free")
-                            </label>
+                    {/* String Fields */}
+                    {[
+                        { label: 'Dosage', name: 'dosage', placeholder: 'e.g., 30ml twice daily after meals' },
+                        { label: 'Shelf Life', name: 'shelfLife', placeholder: 'e.g., 24 months' },
+                        { label: 'Storage Instructions', name: 'storageInstructions', placeholder: 'e.g., Store in a cool, dry place' },
+                        { label: 'Formulation', name: 'formulation', placeholder: 'e.g., Vegetarian capsule' }
+                    ].map(({ label, name, placeholder }) => (
+                        <div key={name}>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
                             <input
                                 type="text"
-                                name="offerText"
-                                value={formData.offerText}
-                                onChange={handleChange}
-                                placeholder="Special offer text..."
+                                name={name}
+                                value={formData[name]}
+                                onChange={handleInputChange}
+                                placeholder={placeholder}
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                                 disabled={loading}
                             />
-                            {formData.offerText && formData.offerText.toLowerCase().includes('free shipping') && !formData.freeShipping && (
-                                <div className="mt-2 p-3 bg-yellow-50 border border-yellow-300 rounded text-sm text-yellow-800">
-                                    <p className="font-medium">⚠️ Warning:</p>
-                                    <p className="text-xs">You mentioned "Free Shipping" in the offer text but haven't enabled it below. Please enable "Free Shipping" in the Shipping Options section.</p>
-                                </div>
-                            )}
                         </div>
+                    ))}
 
-                        {/* Is On Offer */}
-                        <div className="mb-6">
-                            <label className="flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    name="isOnOffer"
-                                    checked={formData.isOnOffer}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, isOnOffer: e.target.checked }))}
-                                    className="w-5 h-5"
-                                    disabled={loading}
-                                />
-                                <span className="text-sm font-medium text-gray-700">Show as Special Offer</span>
-                            </label>
+                    {/* Other String Fields */}
+                    {[
+                        { label: 'Manufacturer', name: 'manufacturer', placeholder: 'Manufacturer name' },
+                        { label: 'Batch Number', name: 'batchNumber', placeholder: 'e.g., BATCH123' },
+                        { label: 'Origin', name: 'origin', placeholder: 'Country / region of origin' },
+                        { label: 'Processing Method', name: 'processingMethod', placeholder: 'e.g., Standardized extraction' },
+                        { label: 'Potency', name: 'potency', placeholder: 'e.g., 600 mg per capsule' }
+                    ].map(({ label, name, placeholder }) => (
+                        <div key={name}>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+                            <input
+                                type="text"
+                                name={name}
+                                value={formData[name]}
+                                onChange={handleInputChange}
+                                placeholder={placeholder}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                disabled={loading}
+                            />
                         </div>
+                    ))}
 
-                        <div className="text-sm text-gray-600 bg-gray-50 p-4 rounded">
-                            <p className="font-medium mb-2">📦 Pack & Combo Features:</p>
-                            <ul className="list-disc list-inside space-y-1">
-                                <li>Create multi-pack options with special pricing</li>
-                                <li>Display offer banners on product page</li>
-                                <li>Show savings percentage automatically</li>
-                            </ul>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Expiry Date</label>
+                        <input
+                            type="date"
+                            name="expiryDate"
+                            value={formData.expiryDate}
+                            onChange={handleInputChange}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                            disabled={loading}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Gender (select multiple)</label>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            {genderOptions.map(({ value, label }) => (
+                                <label key={value} className="flex items-center gap-2 text-sm text-gray-700">
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.gender.includes(value)}
+                                        onChange={() => handleToggleListValue('gender', value)}
+                                        className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                        disabled={loading}
+                                    />
+                                    {label}
+                                </label>
+                            ))}
                         </div>
                     </div>
 
-                    {/* Shipping Options */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Shipping Options</h2>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Age Group (select multiple)</label>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            {AGE_GROUP_OPTIONS.map(({ value, label }) => (
+                                <label key={value} className="flex items-center gap-2 text-sm text-gray-700">
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.ageGroup.includes(value)}
+                                        onChange={() => handleToggleListValue('ageGroup', value)}
+                                        className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                        disabled={loading}
+                                    />
+                                    {label}
+                                </label>
+                            ))}
+                        </div>
+                    </div>
 
-                        {/* Free Shipping */}
-                        <div className="mb-6">
-                            <label className="flex items-center gap-2">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Season (select multiple)</label>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            {SEASON_OPTIONS.map(({ value, label }) => (
+                                <label key={value} className="flex items-center gap-2 text-sm text-gray-700">
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.season.includes(value)}
+                                        onChange={() => handleToggleListValue('season', value)}
+                                        className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                        disabled={loading}
+                                    />
+                                    {label}
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Time of Day (select multiple)</label>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            {TIME_OF_DAY_OPTIONS.map(({ value, label }) => (
+                                <label key={value} className="flex items-center gap-2 text-sm text-gray-700">
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.timeOfDay.includes(value)}
+                                        onChange={() => handleToggleListValue('timeOfDay', value)}
+                                        className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                        disabled={loading}
+                                    />
+                                    {label}
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )
+        },
+        {
+            id: 'usage',
+            title: 'Usage Guidance',
+            description: 'Explain how customers should use, store, and consume the product.',
+            content: (
+                <div className="space-y-4">
+                    {[
+                        { name: 'howToUse', label: 'How to Use' },
+                        { name: 'howToStore', label: 'How to Store' },
+                        { name: 'howToConsume', label: 'How to Consume' }
+                    ].map(({ name, label }) => (
+                        <div key={name}>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+                            {formData[name].map((item, index) => (
+                                <div key={index} className="border border-gray-200 rounded-lg p-4 mb-3">
+                                    <div className="grid grid-cols-1 gap-3">
+                                        <input
+                                            type="url"
+                                            value={item.image || ''}
+                                            onChange={(e) => updateObjectList(name, index, 'image', e.target.value)}
+                                            placeholder="Image URL (optional)"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                            disabled={loading}
+                                        />
+                                        <input
+                                            type="text"
+                                            value={item.name || ''}
+                                            onChange={(e) => updateObjectList(name, index, 'name', e.target.value)}
+                                            placeholder={`${label} name`}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                            disabled={loading}
+                                        />
+                                        <textarea
+                                            value={item.description || ''}
+                                            onChange={(e) => updateObjectList(name, index, 'description', e.target.value)}
+                                            placeholder={`${label} description`}
+                                            rows="2"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                            disabled={loading}
+                                        />
+                                    </div>
+                                    {formData[name].length > 1 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => removeListItem(name, index)}
+                                            className="mt-2 px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                                            disabled={loading}
+                                        >
+                                            Remove
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                            <button
+                                type="button"
+                                onClick={() => addObjectListItem(name, { image: '', name: '', description: '' })}
+                                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                                disabled={loading}
+                            >
+                                + Add {label}
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )
+        },
+        {
+            id: 'faq',
+            title: 'FAQs',
+            description: 'Address common customer questions with concise answers.',
+            content: (
+                <div className="space-y-4">
+                    {formData.faq.map((item, index) => (
+                        <div key={index} className="space-y-2 border border-gray-200 rounded-lg p-4">
+                            <input
+                                type="text"
+                                value={item.question}
+                                onChange={(event) => updateObjectList('faq', index, 'question', event.target.value)}
+                                placeholder="Question"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                disabled={loading}
+                            />
+                            <textarea
+                                value={item.answer}
+                                onChange={(event) => updateObjectList('faq', index, 'answer', event.target.value)}
+                                placeholder="Answer"
+                                rows="2"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                disabled={loading}
+                            />
+                            {formData.faq.length > 1 && (
+                                <button
+                                    type="button"
+                                    onClick={() => removeListItem('faq', index)}
+                                    className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                                    disabled={loading}
+                                >
+                                    Remove
+                                </button>
+                            )}
+                        </div>
+                    ))}
+                    <button
+                        type="button"
+                        onClick={() => addListItem('faq', { question: '', answer: '' })}
+                        className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                        disabled={loading}
+                    >
+                        + Add FAQ
+                    </button>
+                </div>
+            )
+        },
+        {
+            id: 'packs',
+            title: 'Packs & Promotions',
+            description: 'Configure pack discounts, bundle offers, and marketing flags.',
+            content: (
+                <div className="space-y-6">
+                    <div>
+                        <h3 className="text-lg font-semibold text-gray-700 mb-2">Pack Options</h3>
+                        {formData.packOptions.map((option, index) => (
+                            <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                                <div>
+                                    <label className="block text-xs text-gray-600 mb-1">Pack Size *</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        placeholder="Pack Size"
+                                        value={option.packSize}
+                                        onChange={(event) => updateObjectList('packOptions', index, 'packSize', event.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                        disabled={loading}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-gray-600 mb-1">Pack Price (₹) *</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        placeholder="Pack Price"
+                                        value={option.packPrice}
+                                        onChange={(event) => updateObjectList('packOptions', index, 'packPrice', event.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                        disabled={loading}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-gray-600 mb-1">Savings %</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        placeholder="Savings %"
+                                        value={option.savingsPercent}
+                                        onChange={(event) => updateObjectList('packOptions', index, 'savingsPercent', event.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                        disabled={loading}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-gray-600 mb-1">Label</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Label"
+                                        value={option.label}
+                                        onChange={(event) => updateObjectList('packOptions', index, 'label', event.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                        disabled={loading}
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="block text-xs text-gray-600 mb-1">Pack Image</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={(e) => handlePackOptionImageUpload(index, e.target.files[0])}
+                                            className="hidden"
+                                            id={`pack-image-${index}`}
+                                            disabled={loading}
+                                        />
+                                        <label
+                                            htmlFor={`pack-image-${index}`}
+                                            className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 cursor-pointer text-xs"
+                                        >
+                                            Upload
+                                        </label>
+                                        {option.image && (
+                                            <button
+                                                type="button"
+                                                onClick={() => updateObjectList('packOptions', index, 'image', '')}
+                                                className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-xs"
+                                                disabled={loading}
+                                            >
+                                                Clear
+                                            </button>
+                                        )}
+                                    </div>
+                                    {option.image && (
+                                        <div className="mt-2">
+                                            <img
+                                                src={option.image}
+                                                alt="Pack preview"
+                                                className="w-16 h-16 object-cover rounded border"
+                                            />
+                                        </div>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => removeListItem('packOptions', index)}
+                                        className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-xs"
+                                        disabled={loading}
+                                    >
+                                        Remove Pack
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() => addListItem('packOptions', { packSize: '', packPrice: '', savingsPercent: '', label: '', image: '' })}
+                            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                            disabled={loading}
+                        >
+                            + Add Pack Option
+                        </button>
+                    </div>
+
+                    <div>
+                        <h3 className="text-lg font-semibold text-gray-700 mb-2">Free Products (Buy X Get Y)</h3>
+                        {formData.freeProducts.map((item, index) => (
+                            <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                                <select
+                                    value={item.product || ''}
+                                    onChange={(event) => updateObjectList('freeProducts', index, 'product', event.target.value)}
+                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                    disabled={loading}
+                                >
+                                    <option value="">Select Product</option>
+                                    {productOptions.map((product) => (
+                                        <option key={product._id} value={product._id}>
+                                            {product.name} (₹{product.price})
+                                        </option>
+                                    ))}
+                                </select>
                                 <input
-                                    type="checkbox"
-                                    name="freeShipping"
-                                    checked={formData.freeShipping}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, freeShipping: e.target.checked }))}
-                                    className="w-5 h-5"
+                                    type="number"
+                                    min="1"
+                                    placeholder="Min Quantity"
+                                    value={item.minQuantity}
+                                    onChange={(event) => updateObjectList('freeProducts', index, 'minQuantity', event.target.value)}
+                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                                     disabled={loading}
                                 />
-                                <span className="text-sm font-medium text-gray-700">Free Shipping on this product</span>
-                            </label>
-                            <p className="text-xs text-gray-500 mt-1 ml-7">When enabled, no shipping charges will apply for this product</p>
-                        </div>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    placeholder="Free Quantity"
+                                    value={item.quantity}
+                                    onChange={(event) => updateObjectList('freeProducts', index, 'quantity', event.target.value)}
+                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                    disabled={loading}
+                                />
+                                <div className="md:col-span-3 flex justify-end">
+                                    <button
+                                        type="button"
+                                        onClick={() => removeListItem('freeProducts', index)}
+                                        className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                                        disabled={loading}
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() => addListItem('freeProducts', { product: '', minQuantity: '', quantity: '' })}
+                            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                            disabled={loading}
+                        >
+                            + Add Free Product Rule
+                        </button>
+                    </div>
 
-                        {/* Custom Shipping Cost */}
-                        {!formData.freeShipping && (
-                            <div className="mb-6">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Custom Shipping Cost (₹)
-                                </label>
+                    <div>
+                        <h3 className="text-lg font-semibold text-gray-700 mb-2">Bundle With</h3>
+                        {formData.bundleWith.map((item, index) => (
+                            <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                                <select
+                                    value={item.product || ''}
+                                    onChange={(event) => updateObjectList('bundleWith', index, 'product', event.target.value)}
+                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                    disabled={loading}
+                                >
+                                    <option value="">Select Product</option>
+                                    {productOptions.map((product) => (
+                                        <option key={product._id} value={product._id}>
+                                            {product.name} (₹{product.price})
+                                        </option>
+                                    ))}
+                                </select>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="Bundle Price (₹)"
+                                    value={item.bundlePrice}
+                                    onChange={(event) => updateObjectList('bundleWith', index, 'bundlePrice', event.target.value)}
+                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                    disabled={loading}
+                                />
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="Savings Amount (₹)"
+                                    value={item.savingsAmount}
+                                    onChange={(event) => updateObjectList('bundleWith', index, 'savingsAmount', event.target.value)}
+                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                    disabled={loading}
+                                />
+                                <div className="md:col-span-3 flex justify-end">
+                                    <button
+                                        type="button"
+                                        onClick={() => removeListItem('bundleWith', index)}
+                                        className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                                        disabled={loading}
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() => addListItem('bundleWith', { product: '', bundlePrice: '', savingsAmount: '' })}
+                            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                            disabled={loading}
+                        >
+                            + Add Bundle Option
+                        </button>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">Offer Text</label>
+                        <input
+                            type="text"
+                            name="offerText"
+                            value={formData.offerText}
+                            onChange={handleInputChange}
+                            placeholder="e.g., Buy 2 get free shipping"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                            disabled={loading}
+                        />
+                        <label className="flex items-center gap-2 text-sm text-gray-700">
+                            <input
+                                type="checkbox"
+                                name="isOnOffer"
+                                checked={formData.isOnOffer}
+                                onChange={handleInputChange}
+                                className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                                disabled={loading}
+                            />
+                            Highlight as a special offer
+                        </label>
+                    </div>
+                </div>
+            )
+        },
+        {
+            id: 'shipping',
+            title: 'Shipping Options',
+            description: 'Set shipping costs and free shipping thresholds.',
+            content: (
+                <div className="space-y-4">
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                            type="checkbox"
+                            name="freeShipping"
+                            checked={formData.freeShipping}
+                            onChange={handleInputChange}
+                            className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                            disabled={loading}
+                        />
+                        Offer free shipping on this product
+                    </label>
+                    {!formData.freeShipping && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Custom Shipping Cost (₹)</label>
                                 <input
                                     type="number"
                                     name="shippingCost"
                                     value={formData.shippingCost}
-                                    onChange={handleChange}
-                                    placeholder="0 for default shipping"
+                                    onChange={handleInputChange}
                                     min="0"
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                                     disabled={loading}
                                 />
-                                <p className="text-xs text-gray-500 mt-1">Leave 0 for default shipping rates</p>
                             </div>
-                        )}
-
-                        {/* Minimum Order for Free Shipping */}
-                        {!formData.freeShipping && (
-                            <div className="mb-6">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Free Shipping Above (₹)
-                                </label>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Free Shipping Threshold (₹)</label>
                                 <input
                                     type="number"
                                     name="minOrderForFreeShipping"
                                     value={formData.minOrderForFreeShipping}
-                                    onChange={handleChange}
-                                    placeholder="e.g., 499"
+                                    onChange={handleInputChange}
                                     min="0"
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                                     disabled={loading}
                                 />
-                                <p className="text-xs text-gray-500 mt-1">Free shipping when cart value exceeds this amount (0 = no free shipping)</p>
                             </div>
-                        )}
-
-                        <div className="text-sm text-gray-600 bg-green-50 p-4 rounded border border-green-200">
-                            <p className="font-medium mb-2">🚚 Shipping Features:</p>
-                            <ul className="list-disc list-inside space-y-1">
-                                <li>Enable free shipping for specific products</li>
-                                <li>Set custom shipping costs per product</li>
-                                <li>Define minimum order value for free shipping</li>
-                            </ul>
                         </div>
+                    )}
+                </div>
+            )
+        },
+        {
+            id: 'seo',
+            title: 'SEO Information',
+            description: 'Optimize product for search engines with meta tags and keywords.',
+            content: (
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Meta Title</label>
+                        <input
+                            type="text"
+                            name="metaTitle"
+                            value={formData.metaTitle}
+                            onChange={handleInputChange}
+                            placeholder="Enter meta title..."
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                            disabled={loading}
+                        />
                     </div>
-
-                    {/* SEO */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-2xl font-semibold mb-4 text-gray-800">SEO Information</h2>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Meta Title
-                                </label>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Meta Description</label>
+                        <textarea
+                            name="metaDescription"
+                            value={formData.metaDescription}
+                            onChange={handleInputChange}
+                            placeholder="Meta description"
+                            rows="2"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                            disabled={loading}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Keywords</label>
+                        {formData.keywords.map((keyword, index) => (
+                            <div key={index} className="flex gap-2 mb-2">
                                 <input
                                     type="text"
-                                    name="metaTitle"
-                                    value={formData.metaTitle}
-                                    onChange={handleChange}
-                                    placeholder="SEO title for search engines"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                    value={keyword}
+                                    onChange={(event) => updateListValue('keywords', index, event.target.value)}
+                                    placeholder="Keyword"
+                                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                                     disabled={loading}
                                 />
+                                {formData.keywords.length > 1 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => removeListItem('keywords', index)}
+                                        className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                                        disabled={loading}
+                                    >
+                                        Remove
+                                    </button>
+                                )}
                             </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Meta Description
-                                </label>
-                                <textarea
-                                    name="metaDescription"
-                                    value={formData.metaDescription}
-                                    onChange={handleChange}
-                                    placeholder="SEO description..."
-                                    rows="2"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                    disabled={loading}
-                                />
-                            </div>
-
-                            {/* Keywords */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Keywords
-                                </label>
-                                {formData.keywords.map((keyword, index) => (
-                                    <div key={index} className="flex gap-2 mb-2">
-                                        <input
-                                            type="text"
-                                            value={keyword}
-                                            onChange={(e) => handleArrayChange('keywords', index, e.target.value)}
-                                            placeholder="Keyword"
-                                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                            disabled={loading}
-                                        />
-                                        {formData.keywords.length > 1 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => removeArrayItem('keywords', index)}
-                                                className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                                                disabled={loading}
-                                            >
-                                                Remove
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
-                                <button
-                                    type="button"
-                                    onClick={() => addArrayItem('keywords', '')}
-                                    className="mt-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                                    disabled={loading}
-                                >
-                                    + Add Keyword
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Submit Buttons */}
-                    <div className="flex gap-4">
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold disabled:bg-gray-400"
-                        >
-                            {loading ? 'Creating...' : 'Create Product'}
-                        </button>
+                        ))}
                         <button
                             type="button"
-                            onClick={() => navigate('/admin/products')}
+                            onClick={() => addListItem('keywords', '')}
+                            className="mt-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
                             disabled={loading}
-                            className="flex-1 bg-gray-200 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors font-semibold"
                         >
-                            Cancel
+                            + Add Keyword
                         </button>
+                    </div>
+                </div>
+            )
+        }
+    ], [formData, loading, handleInputChange, updateListValue, addListItem, removeListItem, updateObjectList, addObjectListItem, handleToggleListValue, handlePackOptionImageUpload, attributePairs, genderOptions, categoryOptions, productOptions]);
+
+    const currentSection = sections[currentStep];
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-6 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-6xl mx-auto">
+                <BackButton to="/admin/products" label="Back to Products" />
+
+                <div className="mb-6">
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Create New Product</h1>
+                    <p className="text-gray-600">Fill in the details below to publish a new product.</p>
+                    <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
+                        <span className="font-medium">Step {currentStep + 1} of {sections.length}</span>
+                        <span>•</span>
+                        <span>{currentSection.title}</span>
+                    </div>
+                </div>
+
+                {error && (
+                    <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg flex items-start gap-3">
+                        <svg className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                        <p className="text-red-700">{error}</p>
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    {/* Step Navigation */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+                        <nav className="flex flex-wrap gap-2">
+                            {sections.map((section, index) => {
+                                const isActive = index === currentStep;
+                                const isCompleted = index < currentStep;
+                                return (
+                                    <button
+                                        key={section.id}
+                                        type="button"
+                                        onClick={() => goToStep(index)}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                            isActive
+                                                ? 'bg-gradient-to-r from-green-600 to-green-700 text-white shadow-md'
+                                                : isCompleted
+                                                ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
+                                                : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                                        }`}
+                                        disabled={loading}
+                                    >
+                                        {isCompleted && (
+                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                        )}
+                                        <span>{index + 1}.</span>
+                                        <span className="hidden sm:inline">{section.title}</span>
+                                    </button>
+                                );
+                            })}
+                        </nav>
+                    </div>
+
+                    {/* Form Content */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sm:p-8">
+                        <div className="mb-6 pb-4 border-b border-gray-200">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-2">{currentSection.title}</h2>
+                            <p className="text-gray-600">{currentSection.description}</p>
+                        </div>
+                        
+                        <div className="space-y-6">
+                            {currentSection.content}
+                        </div>
+
+                        {/* Navigation Buttons */}
+                        <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
+                            <div className="flex-1">
+                                {currentStep > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => goToStep(currentStep - 1)}
+                                        className="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                                        disabled={loading}
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                        </svg>
+                                        Previous
+                                    </button>
+                                )}
+                            </div>
+                            
+                            <div className="flex items-center gap-4">
+                                <button
+                                    type="button"
+                                    onClick={handleNavigateBack}
+                                    className="px-6 py-3 text-gray-600 hover:text-gray-800 font-medium transition-colors"
+                                    disabled={loading}
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+
+                            <div className="flex-1 flex justify-end">
+                                {currentStep < sections.length - 1 ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => goToStep(currentStep + 1)}
+                                        className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all font-medium shadow-md hover:shadow-lg"
+                                        disabled={loading}
+                                    >
+                                        Next
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="submit"
+                                        disabled={loading}
+                                        className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all font-medium shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {loading ? (
+                                            <>
+                                                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                Creating...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                                Create Product
+                                            </>
+                                        )}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </form>
             </div>

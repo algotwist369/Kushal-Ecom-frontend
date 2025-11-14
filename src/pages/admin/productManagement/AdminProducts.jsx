@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { getAllProducts, deleteProduct, getAllCategories } from '../../../services/adminService';
 import BackButton from '../../../components/common/BackButton';
@@ -16,45 +16,75 @@ const AdminProducts = () => {
     const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
-    
+
     // Filter states
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const [filterCategory, setFilterCategory] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [filterStock, setFilterStock] = useState('');
     const [sortBy, setSortBy] = useState('newest');
-    
+
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalProducts, setTotalProducts] = useState(0);
     const [itemsPerPage, setItemsPerPage] = useState(12);
-    
-    // View mode
-    const [viewMode, setViewMode] = useState('card');
 
+    // View mode
+    const [viewMode, setViewMode] = useState('table');
+
+    // Track image load errors
+    const [imageErrors, setImageErrors] = useState(new Set());
+
+    // Refs to prevent multiple simultaneous requests
+    const fetchingRef = useRef(false);
+    const abortControllerRef = useRef(null);
+
+    // Debounce search term
     useEffect(() => {
-        fetchCategories();
+        const timer = setTimeout(() => {
+            setDebouncedSearchTerm(searchTerm);
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
+    // Reset to page 1 when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [debouncedSearchTerm, filterCategory, filterStatus, filterStock, sortBy]);
+
+    const fetchCategories = useCallback(async () => {
+        try {
+            const result = await getAllCategories();
+            if (result.success) {
+                setCategories(result.data.categories || result.data || []);
+            }
+        } catch (error) {
+            console.error('Error fetching categories:', error);
+        }
     }, []);
 
-    useEffect(() => {
-        fetchProducts();
-    }, [currentPage, itemsPerPage, searchTerm, filterCategory, filterStatus, filterStock, sortBy]);
-
-    const fetchCategories = async () => {
-        const result = await getAllCategories();
-        if (result.success) {
-            setCategories(result.data.categories || result.data || []);
+    const fetchProducts = useCallback(async () => {
+        // Prevent multiple simultaneous requests
+        if (fetchingRef.current) {
+            return;
         }
-    };
 
-    const fetchProducts = async () => {
+        // Abort previous request if still pending
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+
+        fetchingRef.current = true;
         setLoading(true);
+
         try {
             const params = {
                 page: currentPage,
                 limit: itemsPerPage,
-                ...(searchTerm && { search: searchTerm }),
+                ...(debouncedSearchTerm && { search: debouncedSearchTerm }),
                 ...(filterCategory && { category: filterCategory }),
                 ...(filterStatus && { status: filterStatus }),
                 ...(filterStock && { stock: filterStock }),
@@ -62,26 +92,67 @@ const AdminProducts = () => {
             };
 
             const result = await getAllProducts(params);
+            
+            // Check if request was aborted
+            if (abortControllerRef.current?.signal.aborted) {
+                return;
+            }
+
             if (result.success) {
-                setProducts(result.data.products || []);
-                setTotalPages(result.data.pages || 1);
-                setTotalProducts(result.data.total || 0);
+                // Ensure we handle the response structure correctly
+                const responseData = result.data || {};
+
+                // Check if products is an array, otherwise default to empty array
+                const productsArray = Array.isArray(responseData.products)
+                    ? responseData.products
+                    : (Array.isArray(responseData) ? responseData : []);
+
+                // Batch state updates for better performance
+                setProducts(productsArray);
+                setTotalPages(responseData.pages || 1);
+                setTotalProducts(responseData.total || 0);
             } else {
                 console.error('Error fetching products:', result.message);
+                // Batch state updates on error
+                setProducts([]);
+                setTotalPages(1);
+                setTotalProducts(0);
                 toast.error(result.message || 'Failed to fetch products');
             }
         } catch (error) {
+            // Don't show error if request was aborted
+            if (error.name === 'AbortError' || abortControllerRef.current?.signal.aborted) {
+                return;
+            }
             console.error('Error fetching products:', error);
+            // Batch state updates on error
+            setProducts([]);
+            setTotalPages(1);
+            setTotalProducts(0);
             toast.error('Failed to fetch products. Please try again.');
         } finally {
+            fetchingRef.current = false;
             setLoading(false);
         }
-    };
+    }, [currentPage, itemsPerPage, debouncedSearchTerm, filterCategory, filterStatus, filterStock, sortBy]);
 
-    const handleDeleteProduct = async (productId, productName) => {
+    useEffect(() => {
+        fetchCategories();
+    }, [fetchCategories]);
+
+    useEffect(() => {
+        fetchProducts();
+    }, [fetchProducts]);
+
+    // Clear image errors when products change
+    useEffect(() => {
+        setImageErrors(new Set());
+    }, [products]);
+
+    const handleDeleteProduct = useCallback(async (productId, productName) => {
         if (window.confirm(`Are you sure you want to delete product: ${productName}?\n\nThis action cannot be undone.`)) {
             const deletePromise = deleteProduct(productId);
-            
+
             toast.promise(
                 deletePromise,
                 {
@@ -93,34 +164,35 @@ const AdminProducts = () => {
 
             const result = await deletePromise;
             if (result.success) {
-                // Refresh the product list
+                // Optimistically update UI - remove product from list immediately
+                setProducts(prev => prev.filter(p => p._id !== productId));
+                setTotalProducts(prev => Math.max(0, prev - 1));
+                // Refresh the product list in background
                 fetchProducts();
             } else {
                 // Error is already shown by toast.promise, but we can add additional handling if needed
                 console.error('Delete failed:', result.message);
             }
         }
-    };
+    }, [fetchProducts]);
 
-    const handlePageChange = (page) => {
+    const handlePageChange = useCallback((page) => {
         setCurrentPage(page);
         window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
+    }, []);
 
-    const handleItemsPerPageChange = (value) => {
+    const handleItemsPerPageChange = useCallback((value) => {
         setItemsPerPage(value);
         setCurrentPage(1);
-    };
+    }, []);
 
-    const handleFilterChange = () => {
-        setCurrentPage(1);
-    };
+    const handleRefresh = useCallback(async () => {
+        await Promise.all([fetchProducts(), fetchCategories()]);
+        toast.success('Products refreshed successfully!');
+    }, [fetchProducts, fetchCategories]);
 
-    useEffect(() => {
-        handleFilterChange();
-    }, [searchTerm, filterCategory, filterStatus, filterStock]);
-
-    const sortOptions = [
+    // Memoize static options to prevent recreation on every render
+    const sortOptions = useMemo(() => [
         { value: 'newest', label: 'Newest First' },
         { value: 'oldest', label: 'Oldest First' },
         { value: 'name', label: 'Name (A-Z)' },
@@ -129,19 +201,34 @@ const AdminProducts = () => {
         { value: 'priceDesc', label: 'Price (High to Low)' },
         { value: 'stock', label: 'Stock (Low to High)' },
         { value: 'stockDesc', label: 'Stock (High to Low)' }
-    ];
+    ], []);
 
-    const statusOptions = [
+    const statusOptions = useMemo(() => [
         { value: '', label: 'All Status' },
         { value: 'active', label: 'Active' },
         { value: 'inactive', label: 'Inactive' }
-    ];
+    ], []);
 
-    const stockOptions = [
+    const stockOptions = useMemo(() => [
         { value: '', label: 'All Stock' },
         { value: 'instock', label: 'In Stock' },
         { value: 'outofstock', label: 'Out of Stock' }
-    ];
+    ], []);
+
+    // Memoize category options
+    const categoryOptions = useMemo(() => [
+        { value: '', label: 'All Categories' },
+        ...categories.map(cat => ({ value: cat._id, label: cat.name }))
+    ], [categories]);
+
+    // Memoize navigation handlers
+    const handleNavigateToCreate = useCallback(() => {
+        navigate('/admin/products/create');
+    }, [navigate]);
+
+    const handleNavigateToEdit = useCallback((productId) => {
+        navigate(`/admin/products/edit/${productId}`);
+    }, [navigate]);
 
     if (loading && products.length === 0) {
         return <LoadingSpinner fullScreen />;
@@ -151,19 +238,43 @@ const AdminProducts = () => {
         <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
             <div className="max-w-7xl mx-auto">
                 <BackButton to="/admin" label="Back to Dashboard" />
-                
+
                 {/* Header */}
                 <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
                         <h1 className="text-4xl font-bold text-[#5c2d16]">Product Management</h1>
                         <p className="text-gray-600 mt-2">Manage all products ({totalProducts} total)</p>
                     </div>
-                    <button
-                        onClick={() => navigate('/admin/products/create')}
-                        className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold whitespace-nowrap"
-                    >
-                        + Add Product
-                    </button>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={handleRefresh}
+                            disabled={loading}
+                            className="bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            title="Refresh products"
+                        >
+                            <svg
+                                className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                xmlns="http://www.w3.org/2000/svg"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                />
+                            </svg>
+                            Refresh
+                        </button>
+                        <button
+                            onClick={handleNavigateToCreate}
+                            className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold whitespace-nowrap"
+                        >
+                            + Add Product
+                        </button>
+                    </div>
                 </div>
 
                 {/* Filters and Search */}
@@ -183,10 +294,7 @@ const AdminProducts = () => {
                             value={filterCategory}
                             onChange={setFilterCategory}
                             label="Category"
-                            options={[
-                                { value: '', label: 'All Categories' },
-                                ...categories.map(cat => ({ value: cat._id, label: cat.name }))
-                            ]}
+                            options={categoryOptions}
                         />
 
                         {/* Status Filter */}
@@ -238,29 +346,32 @@ const AdminProducts = () => {
                 {/* Card View */}
                 {!loading && viewMode === 'card' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {products.map((product) => (
+                        {products.map((product) => {
+                            const hasImage = product.images && product.images[0] && !imageErrors.has(product._id);
+                            const handleImageError = () => {
+                                setImageErrors(prev => new Set([...prev, product._id]));
+                            };
+                            
+                            return (
                             <div key={product._id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow">
                                 <div className="relative h-48 bg-gray-200">
-                                    {product.images && product.images[0] ? (
+                                    {hasImage ? (
                                         <img
                                             src={product.images[0]}
                                             alt={product.name}
                                             className="w-full h-full object-cover"
-                                            onError={(e) => {
-                                                e.target.style.display = 'none';
-                                                e.target.parentElement.innerHTML = '<div class="flex items-center justify-center h-full text-gray-400">No Image</div>';
-                                            }}
+                                            onError={handleImageError}
+                                            loading="lazy"
                                         />
                                     ) : (
                                         <div className="flex items-center justify-center h-full text-gray-400">
                                             No Image
                                         </div>
                                     )}
-                                    <span className={`absolute top-2 right-2 px-3 py-1 text-xs font-semibold rounded-full ${
-                                        product.stock > 0 
-                                            ? 'bg-green-100 text-green-800' 
+                                    <span className={`absolute top-2 right-2 px-3 py-1 text-xs font-semibold rounded-full ${product.stock > 0
+                                            ? 'bg-green-100 text-green-800'
                                             : 'bg-red-100 text-red-800'
-                                    }`}>
+                                        }`}>
                                         {product.stock > 0 ? 'In Stock' : 'Out of Stock'}
                                     </span>
                                     {!product.isActive && (
@@ -298,7 +409,7 @@ const AdminProducts = () => {
                                     </div>
                                     <div className="flex space-x-2">
                                         <button
-                                            onClick={() => navigate(`/admin/products/edit/${product._id}`)}
+                                            onClick={() => handleNavigateToEdit(product._id)}
                                             className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
                                         >
                                             Edit
@@ -312,7 +423,8 @@ const AdminProducts = () => {
                                     </div>
                                 </div>
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
 
@@ -347,18 +459,23 @@ const AdminProducts = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {products.map((product) => (
+                                    {products.map((product) => {
+                                        const hasImage = product.images && product.images[0] && !imageErrors.has(product._id);
+                                        const handleImageError = () => {
+                                            setImageErrors(prev => new Set([...prev, product._id]));
+                                        };
+                                        
+                                        return (
                                         <tr key={product._id} className="hover:bg-gray-50 transition-colors">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="h-16 w-16 rounded-lg overflow-hidden bg-gray-100">
-                                                    {product.images && product.images[0] ? (
+                                                    {hasImage ? (
                                                         <img
                                                             src={product.images[0]}
                                                             alt={product.name}
                                                             className="h-full w-full object-cover"
-                                                            onError={(e) => {
-                                                                e.target.style.display = 'none';
-                                                            }}
+                                                            onError={handleImageError}
+                                                            loading="lazy"
                                                         />
                                                     ) : (
                                                         <div className="flex items-center justify-center h-full text-gray-400 text-xs">
@@ -391,29 +508,27 @@ const AdminProducts = () => {
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                                    product.stock > 10 
+                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${product.stock > 10
                                                         ? 'bg-green-100 text-green-800'
                                                         : product.stock > 0
-                                                        ? 'bg-yellow-100 text-yellow-800'
-                                                        : 'bg-red-100 text-red-800'
-                                                }`}>
+                                                            ? 'bg-yellow-100 text-yellow-800'
+                                                            : 'bg-red-100 text-red-800'
+                                                    }`}>
                                                     {product.stock > 0 ? `${product.stock} units` : 'Out of Stock'}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                                    product.isActive
+                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${product.isActive
                                                         ? 'bg-green-100 text-green-800'
                                                         : 'bg-gray-100 text-gray-800'
-                                                }`}>
+                                                    }`}>
                                                     {product.isActive ? 'Active' : 'Inactive'}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 <div className="flex justify-end gap-2">
                                                     <button
-                                                        onClick={() => navigate(`/admin/products/edit/${product._id}`)}
+                                                        onClick={() => handleNavigateToEdit(product._id)}
                                                         className="text-gray-600 hover:text-gray-900 font-medium"
                                                         title="Edit product"
                                                     >
@@ -429,7 +544,8 @@ const AdminProducts = () => {
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -451,7 +567,7 @@ const AdminProducts = () => {
                         {!searchTerm && !filterStatus && !filterStock && !filterCategory && (
                             <div className="mt-6">
                                 <button
-                                    onClick={() => navigate('/admin/products/create')}
+                                    onClick={handleNavigateToCreate}
                                     className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
                                 >
                                     + Add Product

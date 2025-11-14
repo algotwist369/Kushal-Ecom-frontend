@@ -3,15 +3,23 @@ import { getCurrentUser, isAuthenticated, logoutUser } from '../services/authSer
 
 export const AuthContext = createContext();
 
+// Module-level flag to prevent double initialization across StrictMode remounts
+let isInitialized = false;
+
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        // Prevent double execution in StrictMode (which intentionally double-mounts in dev)
+        if (isInitialized) {
+            return;
+        }
+        isInitialized = true;
+
         // Check if user is logged in on mount
         if (isAuthenticated()) {
             const currentUser = getCurrentUser();
-            console.log('AuthContext - Loaded user:', currentUser); // Debug
             setUser(currentUser);
         }
         setLoading(false);
@@ -24,6 +32,8 @@ export const AuthProvider = ({ children }) => {
     const logout = async () => {
         await logoutUser();
         setUser(null);
+        // Reset initialization flag so user can be loaded again on next mount
+        isInitialized = false;
     };
 
     const updateUser = (updatedData) => {
