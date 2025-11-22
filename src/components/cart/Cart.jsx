@@ -1,10 +1,51 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BsTrash, BsPlus, BsDash, BsTag, BsChevronLeft } from 'react-icons/bs';
+import { BsTrash, BsPlus, BsDash, BsTag, BsChevronLeft, BsX } from 'react-icons/bs';
 import { useCart } from '../../context/CartContext';
 import api from '../../api/axiosConfig';
 import toast from 'react-hot-toast';
 import PopUpModal from '../common/PopUpModal';
+
+// Confirmation Modal Component
+const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirmText = 'Confirm', cancelText = 'Cancel', type = 'default' }) => {
+    if (!isOpen) return null;
+
+    const bgColor = type === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-[#5c2d16] hover:bg-gray-800';
+    const borderColor = type === 'danger' ? 'border-red-200' : 'border-gray-200';
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 border-2 border-gray-200">
+                <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                    <h3 className="text-xl font-bold text-[#5c2d16]">{title}</h3>
+                    <button
+                        onClick={onClose}
+                        className="text-gray-400 hover:text-gray-600 transition"
+                    >
+                        <BsX className="text-2xl" />
+                    </button>
+                </div>
+                <div className="p-6">
+                    <p className="text-gray-700 mb-6">{message}</p>
+                    <div className="flex gap-3 justify-end">
+                        <button
+                            onClick={onClose}
+                            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition font-medium"
+                        >
+                            {cancelText}
+                        </button>
+                        <button
+                            onClick={onConfirm}
+                            className={`px-6 py-2 rounded-lg text-white transition font-medium ${bgColor}`}
+                        >
+                            {confirmText}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const Cart = () => {
     const navigate = useNavigate();
@@ -15,6 +56,11 @@ const Cart = () => {
     const [appliedCoupon, setAppliedCoupon] = useState(null);
     const [couponDiscount, setCouponDiscount] = useState(0);
     const [applyingCoupon, setApplyingCoupon] = useState(false);
+    
+    // Confirmation modal state
+    const [showCheckoutConfirm, setShowCheckoutConfirm] = useState(false);
+    const [showRemoveCouponConfirm, setShowRemoveCouponConfirm] = useState(false);
+    const [itemToRemove, setItemToRemove] = useState(null);
 
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -46,8 +92,19 @@ const Cart = () => {
     const handleRemove = async (productId) => {
         try {
             await removeFromCart(productId);
+            setItemToRemove(null);
         } catch (error) {
             // Error already handled in context
+        }
+    };
+
+    const handleRemoveClick = (productId, productName) => {
+        setItemToRemove({ id: productId, name: productName });
+    };
+
+    const confirmRemove = () => {
+        if (itemToRemove) {
+            handleRemove(itemToRemove.id);
         }
     };
 
@@ -59,18 +116,49 @@ const Cart = () => {
             return;
         }
 
+        // Check if cart has items
+        if (!cart?.items || cart.items.length === 0) {
+            toast.error('Your cart is empty');
+            return;
+        }
+
         setApplyingCoupon(true);
 
         try {
             const subtotal = getSubtotal();
-            const productIds = cart.items.map(item => item.product._id);
-            const categoryIds = [...new Set(cart.items.map(item => item.product.category?._id || item.product.category).filter(Boolean))];
+            
+            // Ensure subtotal is valid
+            if (!subtotal || subtotal <= 0) {
+                toast.error('Invalid cart total');
+                setApplyingCoupon(false);
+                return;
+            }
+
+            // Extract product IDs - handle both populated and non-populated products
+            const productIds = cart.items
+                .map(item => {
+                    const product = item.product;
+                    if (!product) return null;
+                    return product._id || product;
+                })
+                .filter(Boolean);
+
+            // Extract category IDs - handle both populated and non-populated categories
+            const categoryIds = [...new Set(
+                cart.items
+                    .map(item => {
+                        const category = item.product?.category;
+                        if (!category) return null;
+                        return category._id || category;
+                    })
+                    .filter(Boolean)
+            )];
 
             const response = await api.post('/coupons/validate', {
-                couponCode: couponCode.toUpperCase(),
+                couponCode: couponCode.trim().toUpperCase(),
                 orderAmount: subtotal,
-                productIds,
-                categoryIds
+                productIds: productIds.length > 0 ? productIds : [],
+                categoryIds: categoryIds.length > 0 ? categoryIds : []
             });
 
             if (response.data.valid) {
@@ -79,7 +167,8 @@ const Cart = () => {
                 toast.success(`Coupon applied! You saved ₹${response.data.discount}`);
             }
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Invalid coupon code');
+            const errorMessage = error.response?.data?.message || 'Invalid coupon code';
+            toast.error(errorMessage);
         } finally {
             setApplyingCoupon(false);
         }
@@ -89,7 +178,22 @@ const Cart = () => {
         setAppliedCoupon(null);
         setCouponDiscount(0);
         setCouponCode('');
+        setShowRemoveCouponConfirm(false);
         toast.success('Coupon removed');
+    };
+
+    const handleProceedToCheckout = () => {
+        setShowCheckoutConfirm(true);
+    };
+
+    const confirmCheckout = () => {
+        setShowCheckoutConfirm(false);
+        navigate('/checkout', {
+            state: {
+                appliedCoupon: appliedCoupon,
+                couponDiscount: couponDiscount
+            }
+        });
     };
 
     const getSubtotal = () => {
@@ -372,11 +476,7 @@ const Cart = () => {
 
                                         {/* Remove Button */}
                                         <button
-                                            onClick={() => {
-                                                if (window.confirm(`Remove "${product.name}" from cart?`)) {
-                                                    handleRemove(product._id);
-                                                }
-                                            }}
+                                            onClick={() => handleRemoveClick(product._id, product.name)}
                                             className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition"
                                             title="Remove from cart"
                                         >
@@ -422,7 +522,7 @@ const Cart = () => {
                                             <p className="text-sm text-gray-600">{appliedCoupon.description}</p>
                                         </div>
                                         <button
-                                            onClick={handleRemoveCoupon}
+                                            onClick={() => setShowRemoveCouponConfirm(true)}
                                             className="text-red-600 hover:text-red-700 text-sm font-medium"
                                         >
                                             Remove
@@ -491,12 +591,7 @@ const Cart = () => {
                             </div>
 
                             <button 
-                                onClick={() => navigate('/checkout', {
-                                    state: {
-                                        appliedCoupon: appliedCoupon,
-                                        couponDiscount: couponDiscount
-                                    }
-                                })} 
+                                onClick={handleProceedToCheckout}
                                 disabled={cart.items.some(item => item.product?.stock <= 0)}
                                 className="w-full mt-6 bg-[#5c2d16] text-white py-3 rounded-lg hover:bg-gray-800 transition font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
                             >
@@ -515,6 +610,39 @@ const Cart = () => {
             )}
             </div>
         </div>
+
+            {/* Confirmation Modals */}
+            <ConfirmationModal
+                isOpen={showCheckoutConfirm}
+                onClose={() => setShowCheckoutConfirm(false)}
+                onConfirm={confirmCheckout}
+                title="Proceed to Checkout?"
+                message={`Are you sure you want to proceed to checkout with ${totalItems} ${totalItems === 1 ? 'item' : 'items'}? Your total is ₹${total.toFixed(2)}.`}
+                confirmText="Yes, Proceed"
+                cancelText="Cancel"
+            />
+
+            <ConfirmationModal
+                isOpen={showRemoveCouponConfirm}
+                onClose={() => setShowRemoveCouponConfirm(false)}
+                onConfirm={handleRemoveCoupon}
+                title="Remove Coupon?"
+                message={`Are you sure you want to remove coupon "${appliedCoupon?.code}"? You will lose the discount of ₹${couponDiscount.toFixed(2)}.`}
+                confirmText="Yes, Remove"
+                cancelText="Keep Coupon"
+                type="danger"
+            />
+
+            <ConfirmationModal
+                isOpen={itemToRemove !== null}
+                onClose={() => setItemToRemove(null)}
+                onConfirm={confirmRemove}
+                title="Remove Item from Cart?"
+                message={`Are you sure you want to remove "${itemToRemove?.name}" from your cart?`}
+                confirmText="Yes, Remove"
+                cancelText="Cancel"
+                type="danger"
+            />
         </>
     );
 };

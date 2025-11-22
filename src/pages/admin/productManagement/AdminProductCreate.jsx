@@ -240,13 +240,45 @@ const AdminProductCreate = () => {
         // Get latest formData using functional update pattern
         let submitData;
         setFormData(prev => {
-            if (!prev.price || Number(prev.price) <= 0) {
-                toast.error('Price must be greater than zero.');
+            // Client-side validation (backend also validates, but this provides immediate feedback)
+            if (!prev.name || prev.name.trim() === '') {
+                toast.error('Product name is required.');
+                setError('Product name is required.');
                 return prev;
             }
 
-            if (!prev.stock || Number(prev.stock) < 0) {
-                toast.error('Stock must be zero or a positive number.');
+            if (!prev.price || Number(prev.price) <= 0 || isNaN(Number(prev.price))) {
+                toast.error('Valid product price is required (must be greater than zero).');
+                setError('Valid product price is required.');
+                return prev;
+            }
+
+            if (prev.discountPrice !== undefined && prev.discountPrice !== null && prev.discountPrice !== '') {
+                const discountPriceNum = Number(prev.discountPrice);
+                if (isNaN(discountPriceNum) || discountPriceNum < 0) {
+                    toast.error('Invalid discount price.');
+                    setError('Invalid discount price.');
+                    return prev;
+                }
+                if (discountPriceNum >= Number(prev.price)) {
+                    toast.error('Discount price must be less than regular price.');
+                    setError('Discount price must be less than regular price.');
+                    return prev;
+                }
+            }
+
+            if (prev.stock !== undefined && prev.stock !== null && prev.stock !== '') {
+                const stockNum = Number(prev.stock);
+                if (isNaN(stockNum) || stockNum < 0) {
+                    toast.error('Stock must be zero or a positive number.');
+                    setError('Invalid stock quantity.');
+                    return prev;
+                }
+            }
+
+            if (prev.category && !prev.category.trim()) {
+                toast.error('Please select a valid category.');
+                setError('Please select a valid category.');
                 return prev;
             }
 
@@ -343,7 +375,7 @@ const AdminProductCreate = () => {
             const response = await createProduct(submitData);
             if (response.success) {
                 toast.success('Product created successfully!');
-                setTimeout(() => navigate('/admin/products'), 600);
+                setTimeout(() => navigate('/admin/products', { state: { from: 'create' } }), 600);
             } else {
                 const message = response.message || 'Failed to create product';
                 if (Array.isArray(response.errors) && response.errors.length) {
@@ -374,7 +406,7 @@ const AdminProductCreate = () => {
     }, []);
 
     const handleNavigateBack = useCallback(() => {
-        navigate('/admin/products');
+        navigate('/admin/products', { state: { from: 'create' } });
     }, [navigate]);
 
     // Memoize static options

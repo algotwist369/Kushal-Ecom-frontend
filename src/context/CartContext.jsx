@@ -61,7 +61,7 @@ export const CartProvider = ({ children }) => {
             if (packInfo) {
                 toast.success(`Added ${packInfo.label || `Pack of ${packInfo.packSize}`} to cart!`);
             } else {
-                toast.success('Added to cart successfully!');
+                // toast.success('Added to cart successfully!');
             }
             return data;
         } catch (error) {

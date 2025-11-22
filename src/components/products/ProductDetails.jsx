@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { BsCartPlus, BsStarFill, BsStar, BsX, BsImage, BsChevronLeft, BsChevronRight, BsTruck, BsShieldCheck } from "react-icons/bs";
@@ -8,6 +8,75 @@ import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../hooks/useAuth";
 import toast from "react-hot-toast";
 import PopUpModal from "../common/PopUpModal";
+
+// Safe toast wrapper to prevent undefined/null values that cause indexOf errors
+const safeToast = {
+    success: (message) => {
+        try {
+            const msg = message != null ? String(message) : 'Success';
+            return toast.success(msg);
+        } catch (err) {
+            return toast.success('Success');
+        }
+    },
+    error: (message) => {
+        try {
+            const msg = message != null ? String(message) : 'An error occurred';
+            return toast.error(msg);
+        } catch (err) {
+            return toast.error('An error occurred');
+        }
+    }
+};
+
+// Lazy Image Component with loading placeholder
+const LazyImage = React.memo(({ src, alt, className = "", onLoad, ...props }) => {
+    const [imageLoaded, setImageLoaded] = useState(false);
+    const [imageError, setImageError] = useState(false);
+    const imgRef = useRef(null);
+
+    useEffect(() => {
+        if (imgRef.current?.complete) {
+            setImageLoaded(true);
+        }
+    }, []);
+
+    const handleLoad = useCallback(() => {
+        setImageLoaded(true);
+        onLoad?.();
+    }, [onLoad]);
+
+    const handleError = useCallback(() => {
+        setImageError(true);
+        setImageLoaded(true);
+    }, []);
+
+    return (
+        <div className={`relative ${className}`}>
+            {!imageLoaded && !imageError && (
+                <div className="absolute inset-0 bg-gray-200 animate-pulse rounded" />
+            )}
+            {imageError ? (
+                <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-400 text-sm">
+                    Image not available
+                </div>
+            ) : (
+                <img
+                    ref={imgRef}
+                    src={src}
+                    alt={alt}
+                    className={`${className} transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+                    onLoad={handleLoad}
+                    onError={handleError}
+                    loading="lazy"
+                    {...props}
+                />
+            )}
+        </div>
+    );
+});
+
+LazyImage.displayName = 'LazyImage';
 
 // Professional Image Magnifier Component
 const ImageMagnifier = ({ src, alt, className = "" }) => {
@@ -139,6 +208,58 @@ const ImageMagnifier = ({ src, alt, className = "" }) => {
     );
 };
 
+// Alternating Image Content Card Component
+const AlternatingCard = ({ item, index, icon = "✓", iconBgColor = "bg-green-600", cardBgColor = "from-green-50 to-white", borderColor = "border-green-100" }) => {
+    // Alternate image position: even index = left, odd index = right
+    const isImageLeft = index % 2 === 0;
+
+    if (typeof item === 'object' && item !== null) {
+        return (
+            <div className={`  overflow-hidden shadow-sm`}>
+                <div className={`flex flex-col md:flex-row ${!isImageLeft ? 'md:flex-row-reverse' : ''}`}>
+                    {/* Image Section */}
+                    {item.image && (
+                        <div className="w-full md:w-1/2 lg:w-2/5 h-64 md:h-auto bg-gray-100 flex-shrink-0 overflow-hidden">
+                            <img
+                                src={item.image}
+                                alt={item.name || `Item ${index + 1}`}
+                                className="w-full h-full object-contain"
+                            />
+                        </div>
+                    )}
+                    {/* Content Section */}
+                    <div className={`flex-1 p-5 md:p-7 flex flex-col justify-center ${item.image ? '' : 'p-6 md:p-8'}`}>
+                        {item.name && (
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className={`w-10 h-10 md:w-12 md:h-12 ${iconBgColor} rounded-full flex items-center justify-center flex-shrink-0`}>
+                                    <span className="text-white text-xl md:text-2xl">{icon}</span>
+                                </div>
+                                <h4 className="text-lg md:text-2xl font-bold text-[#5c2d16]">{item.name}</h4>
+                            </div>
+                        )}
+                        {item.description && (
+                            <p className="text-gray-700 leading-relaxed text-sm md:text-base lg:text-lg">{item.description}</p>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    } else {
+        return (
+            <div className={`bg-gradient-to-br ${cardBgColor} border-2 ${borderColor} rounded-xl md:rounded-2xl overflow-hidden shadow-sm`}>
+                <div className="p-5 md:p-7">
+                    <div className="flex items-start gap-4">
+                        <div className={`w-10 h-10 md:w-12 md:h-12 ${iconBgColor} rounded-full flex items-center justify-center flex-shrink-0`}>
+                            <span className="text-white text-xl md:text-2xl">{icon}</span>
+                        </div>
+                        <p className="text-gray-700 leading-relaxed text-sm md:text-base lg:text-lg flex-1">{item}</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+};
+
 // Simple Image Lightbox
 const ImageLightbox = ({ images, currentIndex, onClose, onNext, onPrev }) => {
     useEffect(() => {
@@ -259,86 +380,162 @@ const ProductDetails = () => {
     const [couponError, setCouponError] = useState('');
     const [phoneValidation, setPhoneValidation] = useState({ isValid: false, message: '' });
 
+    // Refs to prevent duplicate API calls
+    const abortControllerRef = useRef(null);
+    const fetchedProductsRef = useRef(new Set());
+    const isMountedRef = useRef(true);
+
     useEffect(() => {
+        isMountedRef.current = true;
+        return () => {
+            isMountedRef.current = false;
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
+    }, []);
+
+    // Memoized fetch functions with duplicate prevention - MUST be defined before useEffect that uses them
+    const fetchProductById = useCallback(async (id, signal) => {
+        if (fetchedProductsRef.current.has(id)) return null;
+        fetchedProductsRef.current.add(id);
+        try {
+            const response = await api.get(`/products/${id}`, { signal });
+            return response.data;
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                fetchedProductsRef.current.delete(id);
+            }
+            return null;
+        }
+    }, []);
+
+    const fetchProductDetails = useCallback(async () => {
+        if (!isMountedRef.current) return;
+
+        try {
+            setLoading(true);
+            const signal = abortControllerRef.current?.signal;
+            
+            // Fetch main product - this is critical, show error if it fails
+            const response = await api.get(`/products/${productId}`, { signal });
+
+            if (!isMountedRef.current || signal?.aborted) return;
+
+            const productData = response.data;
+            setProduct(productData);
+            setMainImage(productData.images?.[0] || "");
+            
+            // Set loading to false after main product loads successfully
+            if (isMountedRef.current) {
+                setLoading(false);
+            }
+
+            // Fetch related data in parallel - these are optional, don't show error if they fail
+            const promises = [];
+
+            if (productData.category?._id) {
+                promises.push(
+                    api.post('/products/filter', {
+                        categories: [productData.category._id],
+                        limit: 4
+                    }, { signal }).then(res => {
+                        if (!isMountedRef.current || signal?.aborted) return;
+                        setRelatedProducts(res.data.products?.filter(p => p._id !== productData._id) || []);
+                    }).catch(() => { 
+                        // Silently fail for related products
+                    })
+                );
+            }
+
+            if (productData.bundleWith?.length > 0) {
+                const bundleIds = productData.bundleWith
+                    .map(b => typeof b.product === 'object' ? b.product._id : b.product)
+                    .filter(Boolean);
+                if (bundleIds.length > 0) {
+                    promises.push(
+                        Promise.all(bundleIds.map(id => fetchProductById(id, signal)))
+                            .then(products => {
+                                if (!isMountedRef.current || signal?.aborted) return;
+                                setBundleProducts(products.filter(Boolean));
+                            })
+                            .catch(() => {
+                                // Silently fail for bundle products
+                            })
+                    );
+                }
+            }
+
+            if (productData.freeProducts?.length > 0) {
+                const freeIds = productData.freeProducts
+                    .map(f => typeof f.product === 'object' ? f.product._id : f.product)
+                    .filter(Boolean);
+                if (freeIds.length > 0) {
+                    promises.push(
+                        Promise.all(freeIds.map(id => fetchProductById(id, signal)))
+                            .then(products => {
+                                if (!isMountedRef.current || signal?.aborted) return;
+                                setFreeProductsData(products.filter(Boolean));
+                            })
+                            .catch(() => {
+                                // Silently fail for free products
+                            })
+                    );
+                }
+            }
+
+            // Wait for all optional fetches, but don't throw if they fail
+            await Promise.allSettled(promises);
+        } catch (error) {
+            // Only show error if main product fetch fails
+            if (error.name !== 'AbortError' && isMountedRef.current) {
+                // safeToast.error("Failed to load product");
+            }
+            if (isMountedRef.current) {
+                setLoading(false);
+            }
+        }
+    }, [productId, fetchProductById]);
+
+    const fetchActiveCoupons = useCallback(async () => {
+        if (!isMountedRef.current) return;
+        
+        try {
+            const signal = abortControllerRef.current?.signal;
+            const response = await api.get('/coupons/active', { signal });
+            if (!isMountedRef.current || signal?.aborted) return;
+            setActiveCoupons(response.data || []);
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                // Silent fail for coupons
+            }
+        }
+    }, []);
+
+    // useEffect after function definitions
+    useEffect(() => {
+        // Cleanup previous requests
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        
+        // Create new abort controller
+        abortControllerRef.current = new AbortController();
+        fetchedProductsRef.current.clear();
+        
         fetchProductDetails();
         fetchActiveCoupons();
         window.scrollTo(0, 0);
+
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [productId]);
 
-    const fetchProductDetails = async () => {
-        try {
-            setLoading(true);
-            const response = await api.get(`/products/${productId}`);
-            setProduct(response.data);
-            setMainImage(response.data.images?.[0] || "");
-
-            if (response.data.category?._id) {
-                fetchRelatedProducts(response.data.category._id);
-            }
-
-            if (response.data.bundleWith && response.data.bundleWith.length > 0) {
-                fetchBundleProducts(response.data.bundleWith);
-            }
-
-            if (response.data.freeProducts && response.data.freeProducts.length > 0) {
-                fetchFreeProducts(response.data.freeProducts);
-            }
-        } catch (error) {
-            console.error("Error fetching product:", error);
-            toast.error("Failed to load product");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchRelatedProducts = async (categoryId) => {
-        try {
-            const response = await api.post('/products/filter', {
-                categories: [categoryId],
-                limit: 4
-            });
-            setRelatedProducts(response.data.products?.filter(p => p._id !== product?._id) || []);
-        } catch (error) {
-            console.error("Error fetching related products:", error);
-        }
-    };
-
-    const fetchBundleProducts = async (bundles) => {
-        try {
-            const productIds = bundles.map(b => typeof b.product === 'object' ? b.product._id : b.product).filter(Boolean);
-            if (productIds.length > 0) {
-                const promises = productIds.map(id => api.get(`/products/${id}`).catch(() => null));
-                const responses = await Promise.all(promises);
-                setBundleProducts(responses.filter(r => r !== null).map(r => r.data));
-            }
-        } catch (error) {
-            console.error("Error fetching bundle products:", error);
-        }
-    };
-
-    const fetchFreeProducts = async (freeOffers) => {
-        try {
-            const productIds = freeOffers.map(f => typeof f.product === 'object' ? f.product._id : f.product).filter(Boolean);
-            if (productIds.length > 0) {
-                const promises = productIds.map(id => api.get(`/products/${id}`).catch(() => null));
-                const responses = await Promise.all(promises);
-                setFreeProductsData(responses.filter(r => r !== null).map(r => r.data));
-            }
-        } catch (error) {
-            console.error("Error fetching free products:", error);
-        }
-    };
-
-    const fetchActiveCoupons = async () => {
-        try {
-            const response = await api.get('/coupons/active');
-            setActiveCoupons(response.data || []);
-        } catch (error) {
-            console.error("Error fetching coupons:", error);
-        }
-    };
-
-    const validatePhoneNumber = (phone) => {
+    const validatePhoneNumber = useCallback((phone) => {
         if (phone.length === 0) {
             setPhoneValidation({ isValid: false, message: '' });
             return false;
@@ -357,27 +554,48 @@ const ProductDetails = () => {
 
         setPhoneValidation({ isValid: true, message: 'Valid phone number' });
         return true;
-    };
+    }, []);
 
-    const handleClaimCoupon = async (e) => {
+    const handleClaimCoupon = useCallback(async (e) => {
         e.preventDefault();
         setCouponError('');
 
-        if (!phoneNumber) {
+        // Get phone number directly from the form input to avoid state timing issues
+        const form = e.target;
+        const phoneInput = form.querySelector('input[type="tel"]');
+        const rawPhone = phoneInput ? phoneInput.value : phoneNumber;
+        
+        // Clean and validate phone number
+        const currentPhone = String(rawPhone || '').replace(/\D/g, '').trim();
+        
+        // Check if phone number is empty
+        if (!currentPhone || currentPhone.length === 0) {
             setCouponError("Please enter your phone number");
+            setPhoneValidation({ isValid: false, message: 'Please enter your phone number' });
             return;
         }
 
-        // Validate phone number
+        // Validate phone number format - must be exactly 10 digits starting with 6, 7, 8, or 9
         const phoneRegex = /^[6-9]\d{9}$/;
-        if (!phoneRegex.test(phoneNumber)) {
-            setCouponError("Please enter a valid 10-digit Indian mobile number");
+        if (currentPhone.length !== 10) {
+            setCouponError("Phone number must be exactly 10 digits");
+            setPhoneValidation({ isValid: false, message: 'Phone number must be 10 digits' });
             return;
         }
+        
+        if (!phoneRegex.test(currentPhone)) {
+            setCouponError("Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9");
+            setPhoneValidation({ isValid: false, message: 'Phone number must start with 6, 7, 8, or 9' });
+            return;
+        }
+        
+        // Update phone number state to match what we're sending
+        setPhoneNumber(currentPhone);
+        setPhoneValidation({ isValid: true, message: 'Valid phone number' });
 
         // Get the first available active coupon
         if (activeCoupons.length === 0) {
-            toast.error("No coupons available at the moment");
+            safeToast.error("No coupons available at the moment");
             return;
         }
 
@@ -387,32 +605,32 @@ const ProductDetails = () => {
             // Claim the first available coupon
             const selectedCoupon = activeCoupons[0];
             const response = await api.post('/coupons/claim', {
-                phoneNumber,
+                phoneNumber: currentPhone,
                 couponCode: selectedCoupon.code
             });
 
             setClaimedCoupon(response.data.coupon);
-            toast.success("Coupon received! Copy and use at checkout.");
+            safeToast.success("Coupon received! Copy and use at checkout.");
             setPhoneNumber('');
             setCouponError('');
         } catch (error) {
-            const errorMessage = error.response?.data?.message || "Failed to claim coupon";
+            const errorMessage = String(error.response?.data?.message || error.message || "Failed to claim coupon");
             setCouponError(errorMessage);
-            toast.error(errorMessage);
+            safeToast.error(errorMessage);
         } finally {
             setClaimingCoupon(false);
         }
-    };
+    }, [activeCoupons, phoneNumber, validatePhoneNumber]);
 
-    const handleAddToCart = async () => {
+    const handleAddToCart = useCallback(async () => {
         if (!isAuthenticated) {
-            toast.error("Please login to add items to cart");
+            safeToast.error("Please login to add items to cart");
             navigate("/login");
             return;
         }
 
         if (product.stock <= 0) {
-            toast.error("Out of stock");
+            safeToast.error("Out of stock");
             return;
         }
 
@@ -426,20 +644,20 @@ const ProductDetails = () => {
 
         try {
             await addToCart(product._id, finalQuantity, packInfo);
-            toast.success("Added to cart");
+            safeToast.success("Added to cart");
             setQuantity(1);
             setSelectedPack(null);
         } catch (error) {
             // Error handled in context
         }
-    };
+    }, [isAuthenticated, product, selectedPack, quantity, addToCart, navigate]);
 
-    const handleImageUpload = async (e) => {
+    const handleImageUpload = useCallback(async (e) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
 
         if (reviewForm.images.length + files.length > 5) {
-            toast.error("Maximum 5 images allowed");
+            safeToast.error("Maximum 5 images allowed");
             e.target.value = '';
             return;
         }
@@ -452,26 +670,27 @@ const ProductDetails = () => {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             setReviewForm(prev => ({ ...prev, images: [...prev.images, ...(response.data.urls || [])] }));
-            toast.success("Images uploaded");
+            safeToast.success("Images uploaded");
             e.target.value = '';
         } catch (error) {
-            toast.error("Failed to upload images");
+            const errorMsg = String(error?.response?.data?.message || error?.message || "Failed to upload images");
+            safeToast.error(errorMsg);
             e.target.value = '';
         } finally {
             setUploadingImages(false);
         }
-    };
+    }, [reviewForm.images.length]);
 
-    const handleReviewSubmit = async (e) => {
+    const handleReviewSubmit = useCallback(async (e) => {
         e.preventDefault();
         if (!isAuthenticated) {
-            toast.error("Please login to submit a review");
+            safeToast.error("Please login to submit a review");
             navigate("/login");
             return;
         }
 
         if (!reviewForm.rating || !reviewForm.comment.trim()) {
-            toast.error("Please provide rating and comment");
+            safeToast.error("Please provide rating and comment");
             return;
         }
 
@@ -481,7 +700,7 @@ const ProductDetails = () => {
                 comment: reviewForm.comment,
                 images: reviewForm.images
             });
-            toast.success(editingReviewId ? "Review updated" : "Review submitted");
+            safeToast.success(editingReviewId ? "Review updated" : "Review submitted");
             setReviewForm({ rating: 0, comment: "", images: [] });
             setEditingReviewId(null);
             if (response.data.product) {
@@ -490,28 +709,46 @@ const ProductDetails = () => {
                 fetchProductDetails();
             }
         } catch (error) {
-            toast.error("Failed to submit review");
+            const errorMsg = String(error?.response?.data?.message || error?.message || "Failed to submit review");
+            safeToast.error(errorMsg);
         }
-    };
+    }, [isAuthenticated, product, reviewForm, editingReviewId, navigate, fetchProductDetails]);
 
-    const handleDeleteReview = async (reviewId) => {
+    const handleDeleteReview = useCallback(async (reviewId) => {
         if (!window.confirm("Delete your review?")) return;
         try {
             await api.delete(`/products/${product._id}/review/${reviewId}`);
-            toast.success("Review deleted");
+            safeToast.success("Review deleted");
             fetchProductDetails();
         } catch (error) {
-            toast.error("Failed to delete review");
+            const errorMsg = String(error?.response?.data?.message || error?.message || "Failed to delete review");
+            safeToast.error(errorMsg);
         }
-    };
+    }, [product]);
 
-    const handleEditReview = (review) => {
+    const handleEditReview = useCallback((review) => {
         setReviewForm({ rating: review.rating, comment: review.comment, images: review.images || [] });
         setEditingReviewId(review._id);
         document.getElementById('review-form')?.scrollIntoView({ behavior: 'smooth' });
-    };
+    }, []);
 
-    const renderStars = (rating) => {
+    // Memoized handlers
+    const handleImageSelect = useCallback((img, idx) => {
+        setMainImage(img);
+        setSelectedImageIndex(idx);
+    }, []);
+
+    const handleQuantityChange = useCallback((delta) => {
+        if (!product) return;
+        setQuantity(prev => Math.max(1, Math.min(product.stock, prev + delta)));
+    }, [product]);
+
+    const handleTabChange = useCallback((tabId) => {
+        setActiveTab(tabId);
+    }, []);
+
+    // Memoized functions
+    const renderStars = useCallback((rating) => {
         const stars = [];
         for (let i = 0; i < 5; i++) {
             if (i < Math.floor(rating)) {
@@ -523,20 +760,62 @@ const ProductDetails = () => {
             }
         }
         return stars;
-    };
+    }, []);
 
-    const getCurrentPrice = () => {
+    const currentPrice = useMemo(() => {
+        if (!product) return 0;
         if (selectedPack) return selectedPack.packPrice;
         return product.discountPrice || product.price;
-    };
+    }, [product, selectedPack]);
 
-    const getDiscount = () => {
+    const discount = useMemo(() => {
+        if (!product) return 0;
         if (selectedPack && selectedPack.savingsPercent) return selectedPack.savingsPercent;
         if (product.discountPrice && product.discountPrice < product.price) {
             return Math.round(((product.price - product.discountPrice) / product.price) * 100);
         }
         return 0;
-    };
+    }, [product, selectedPack]);
+
+    // Memoized tabs configuration
+    const tabs = useMemo(() => {
+        if (!product) return [];
+        return [
+            { id: 'description', label: 'Description', show: true },
+            {
+                id: 'ingredients', label: 'Ingredients', show: product.ingredients && (
+                    (Array.isArray(product.ingredients) && product.ingredients.length > 0) ||
+                    (typeof product.ingredients === 'string' && product.ingredients.trim() !== '')
+                )
+            },
+            {
+                id: 'benefits', label: 'Benefits', show: product.benefits && (
+                    (Array.isArray(product.benefits) && product.benefits.length > 0) ||
+                    (typeof product.benefits === 'string' && product.benefits.trim() !== '')
+                )
+            },
+            {
+                id: 'usage', label: 'How to Use', show: (product.dosage && (
+                    (Array.isArray(product.dosage) && product.dosage.length > 0) ||
+                    (typeof product.dosage === 'string' && product.dosage.trim() !== '')
+                )) || (product.howToUse && (
+                    (Array.isArray(product.howToUse) && product.howToUse.length > 0) ||
+                    (typeof product.howToUse === 'string' && product.howToUse.trim() !== '')
+                )) || (product.howToConsume && (
+                    (Array.isArray(product.howToConsume) && product.howToConsume.length > 0) ||
+                    (typeof product.howToConsume === 'string' && product.howToConsume.trim() !== '')
+                )) || (product.storageInstructions && (
+                    (Array.isArray(product.storageInstructions) && product.storageInstructions.length > 0) ||
+                    (typeof product.storageInstructions === 'string' && product.storageInstructions.trim() !== '')
+                )) || (product.contraindications && (
+                    (Array.isArray(product.contraindications) && product.contraindications.length > 0) ||
+                    (typeof product.contraindications === 'string' && product.contraindications.trim() !== '')
+                ))
+            },
+            { id: 'specifications', label: 'Specifications', show: true },
+            { id: 'reviews', label: `Reviews (${product.numReviews || 0})`, show: true }
+        ].filter(tab => tab.show);
+    }, [product]);
 
     if (loading) {
         return (
@@ -560,49 +839,15 @@ const ProductDetails = () => {
         );
     }
 
-    const tabs = [
-        { id: 'description', label: 'Description', show: true },
-        {
-            id: 'ingredients', label: 'Ingredients', show: product.ingredients && (
-                (Array.isArray(product.ingredients) && product.ingredients.length > 0) ||
-                (typeof product.ingredients === 'string' && product.ingredients.trim() !== '')
-            )
-        },
-        {
-            id: 'benefits', label: 'Benefits', show: product.benefits && (
-                (Array.isArray(product.benefits) && product.benefits.length > 0) ||
-                (typeof product.benefits === 'string' && product.benefits.trim() !== '')
-            )
-        },
-        {
-            id: 'usage', label: 'How to Use', show: (product.dosage && (
-                (Array.isArray(product.dosage) && product.dosage.length > 0) || 
-                (typeof product.dosage === 'string' && product.dosage.trim() !== '')
-            )) || (product.howToUse && (
-                (Array.isArray(product.howToUse) && product.howToUse.length > 0) ||
-                (typeof product.howToUse === 'string' && product.howToUse.trim() !== '')
-            )) || (product.howToConsume && (
-                (Array.isArray(product.howToConsume) && product.howToConsume.length > 0) ||
-                (typeof product.howToConsume === 'string' && product.howToConsume.trim() !== '')
-            )) || (product.storageInstructions && (
-                (Array.isArray(product.storageInstructions) && product.storageInstructions.length > 0) || 
-                (typeof product.storageInstructions === 'string' && product.storageInstructions.trim() !== '')
-            )) || (product.contraindications && (
-                (Array.isArray(product.contraindications) && product.contraindications.length > 0) || 
-                (typeof product.contraindications === 'string' && product.contraindications.trim() !== '')
-            ))
-        },
-        { id: 'specifications', label: 'Specifications', show: true },
-        { id: 'reviews', label: `Reviews (${product.numReviews || 0})`, show: true }
-    ].filter(tab => tab.show);
-
     return (
         <>
             <PopUpModal />
             <Helmet>
-                <title>{product?.metaTitle || `${product?.name} - Prolific Healing Herbs`}</title>
-                <meta name="description" content={product?.metaDescription || product?.description} />
-                {product?.keywords && <meta name="keywords" content={product.keywords.join(', ')} />}
+                <title>{String(product?.metaTitle || product?.name || 'Product') + ' - Prolific Healing Herbs'}</title>
+                <meta name="description" content={String(product?.metaDescription || product?.description || '')} />
+                {product?.keywords && Array.isArray(product.keywords) && product.keywords.length > 0 && (
+                    <meta name="keywords" content={product.keywords.filter(Boolean).join(', ')} />
+                )}
             </Helmet>
 
             <div className="bg-white">
@@ -645,7 +890,7 @@ const ProductDetails = () => {
                             >
                                 <ImageMagnifier
                                     src={mainImage}
-                                    alt={product.name}
+                                    alt={product.name || 'Product image'}
                                     className="w-full h-full transition-transform"
                                 />
                             </div>
@@ -657,11 +902,11 @@ const ProductDetails = () => {
                                     {product.images.map((img, idx) => (
                                         <button
                                             key={idx}
-                                            onClick={() => { setMainImage(img); setSelectedImageIndex(idx); }}
+                                            onClick={() => handleImageSelect(img, idx)}
                                             className={`border-2 rounded overflow-hidden aspect-square ${selectedImageIndex === idx ? 'border-[#5c2d16]' : 'border-gray-200 hover:border-gray-400'
                                                 }`}
                                         >
-                                            <img src={img} alt="" className="w-full h-full object-cover" />
+                                            <LazyImage src={img} alt="" className="w-full h-full object-cover" />
                                         </button>
                                     ))}
                                 </div>
@@ -670,7 +915,7 @@ const ProductDetails = () => {
 
                         {/* Product Info */}
                         <div>
-                            <h1 className="text-3xl font-bold text-[#5c2d16] mb-3">{product.name}</h1>
+                            <h1 className="text-3xl font-bold text-[#5c2d16] mb-3">{product.name || ''}</h1>
 
                             {/* Rating */}
                             {product.averageRating > 0 && (
@@ -685,13 +930,13 @@ const ProductDetails = () => {
                             {/* Price */}
                             <div className="mb-6">
                                 <div className="flex items-baseline gap-3 mb-2">
-                                    <span className="text-4xl font-bold text-[#5c2d16]">₹{getCurrentPrice()}</span>
+                                    <span className="text-4xl font-bold text-[#5c2d16]">₹{currentPrice}</span>
                                     {product.discountPrice && product.discountPrice < product.price && (
                                         <span className="text-xl text-gray-400 line-through">₹{product.price}</span>
                                     )}
                                 </div>
-                                {getDiscount() > 0 && (
-                                    <span className="text-green-600 font-medium">{getDiscount()}% off</span>
+                                {discount > 0 && (
+                                    <span className="text-green-600 font-medium">{discount}% off</span>
                                 )}
                             </div>
 
@@ -768,7 +1013,7 @@ const ProductDetails = () => {
                                                                 }}
                                                             />
                                                         ) : null}
-                                                        <div 
+                                                        <div
                                                             className={`w-full h-full rounded-lg flex items-center justify-center ${pack.image ? 'hidden' : ''}`}
                                                         >
                                                             <span className="text-lg font-bold text-gray-600">{pack.packSize}</span>
@@ -811,14 +1056,14 @@ const ProductDetails = () => {
                                             <p className="text-sm font-medium text-gray-700">Quantity:</p>
                                             <div className="flex items-center border border-gray-300 rounded">
                                                 <button
-                                                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                                                    onClick={() => handleQuantityChange(-1)}
                                                     className="px-4 py-2 hover:bg-gray-100"
                                                 >
                                                     −
                                                 </button>
                                                 <span className="px-6 py-2 border-x border-gray-300 font-medium">{quantity}</span>
                                                 <button
-                                                    onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
+                                                    onClick={() => handleQuantityChange(1)}
                                                     className="px-4 py-2 hover:bg-gray-100"
                                                 >
                                                     +
@@ -854,27 +1099,27 @@ const ProductDetails = () => {
                                             </div>
                                         )}
                                         {product.formulation && (
-                                            (Array.isArray(product.formulation) && product.formulation.length > 0) || 
+                                            (Array.isArray(product.formulation) && product.formulation.length > 0) ||
                                             (typeof product.formulation === 'string' && product.formulation.trim() !== '')
                                         ) && (
-                                            <div>
-                                                <p className="text-gray-500">Form</p>
-                                                <p className="font-semibold text-[#5c2d16]">
-                                                    {Array.isArray(product.formulation) ? product.formulation.join(', ') : product.formulation}
-                                                </p>
-                                            </div>
-                                        )}
+                                                <div>
+                                                    <p className="text-gray-500">Form</p>
+                                                    <p className="font-semibold text-[#5c2d16]">
+                                                        {Array.isArray(product.formulation) ? product.formulation.filter(Boolean).join(', ') : (product.formulation || '')}
+                                                    </p>
+                                                </div>
+                                            )}
                                         {product.shelfLife && (
-                                            (Array.isArray(product.shelfLife) && product.shelfLife.length > 0) || 
+                                            (Array.isArray(product.shelfLife) && product.shelfLife.length > 0) ||
                                             (typeof product.shelfLife === 'string' && product.shelfLife.trim() !== '')
                                         ) && (
-                                            <div>
-                                                <p className="text-gray-500">Shelf Life</p>
-                                                <p className="font-semibold text-[#5c2d16]">
-                                                    {Array.isArray(product.shelfLife) ? product.shelfLife.join(', ') : product.shelfLife}
-                                                </p>
-                                            </div>
-                                        )}
+                                                <div>
+                                                    <p className="text-gray-500">Shelf Life</p>
+                                                    <p className="font-semibold text-[#5c2d16]">
+                                                        {Array.isArray(product.shelfLife) ? product.shelfLife.filter(Boolean).join(', ') : (product.shelfLife || '')}
+                                                    </p>
+                                                </div>
+                                            )}
                                     </div>
                                 </div>
                             )}
@@ -915,12 +1160,12 @@ const ProductDetails = () => {
                                                         }}
                                                         placeholder="Enter 10-digit mobile number"
                                                         className={`w-full px-4 py-3 pr-10 border rounded-lg focus:ring-2 text-lg ${couponError
-                                                                ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
-                                                                : phoneValidation.isValid
-                                                                    ? 'border-green-500 focus:ring-green-500 focus:border-green-500'
-                                                                    : phoneNumber.length > 0 && !phoneValidation.isValid
-                                                                        ? 'border-red-300 focus:ring-red-300 focus:border-red-300'
-                                                                        : 'border-gray-300 focus:ring-[#5c2d16] focus:border-transparent'
+                                                            ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+                                                            : phoneValidation.isValid
+                                                                ? 'border-green-500 focus:ring-green-500 focus:border-green-500'
+                                                                : phoneNumber.length > 0 && !phoneValidation.isValid
+                                                                    ? 'border-red-300 focus:ring-red-300 focus:border-red-300'
+                                                                    : 'border-gray-300 focus:ring-[#5c2d16] focus:border-transparent'
                                                             }`}
                                                         required
                                                         maxLength="10"
@@ -970,9 +1215,15 @@ const ProductDetails = () => {
                                                 </h3>
                                                 <div
                                                     className="inline-block border-2 border-[#5c2d16] rounded-lg px-8 py-4 bg-gray-50 cursor-pointer hover:bg-gray-100 transition"
-                                                    onClick={() => {
-                                                        navigator.clipboard.writeText(claimedCoupon.code);
-                                                        toast.success('Coupon code copied!');
+                                                    onClick={async () => {
+                                                        try {
+                                                            if (claimedCoupon?.code) {
+                                                                await navigator.clipboard.writeText(String(claimedCoupon.code));
+                                                                safeToast.success('Coupon code copied!');
+                                                            }
+                                                        } catch (err) {
+                                                            safeToast.error('Failed to copy coupon code');
+                                                        }
                                                     }}
                                                     title="Click to copy"
                                                 >
@@ -1008,9 +1259,16 @@ const ProductDetails = () => {
                                                         Copy this code and apply it at checkout
                                                     </p>
                                                     <button
-                                                        onClick={() => {
-                                                            navigator.clipboard.writeText(claimedCoupon.code);
-                                                            toast.success('Copied to clipboard!');
+                                                        onClick={async () => {
+                                                            try {
+                                                                if (claimedCoupon?.code) {
+                                                                    await navigator.clipboard.writeText(String(claimedCoupon.code));
+                                                                    safeToast.success('Copied to clipboard!');
+                                                                }
+                                                            } catch (err) {
+                                                                // Fallback if clipboard API fails
+                                                                safeToast.error('Failed to copy coupon code');
+                                                            }
                                                         }}
                                                         className="bg-[#5c2d16] text-white px-6 py-2 rounded-lg hover:bg-gray-800 transition text-sm font-medium"
                                                     >
@@ -1060,20 +1318,24 @@ const ProductDetails = () => {
                                                             onClick={async (e) => {
                                                                 e.stopPropagation();
                                                                 if (!isAuthenticated) {
-                                                                    toast.error("Please login");
+                                                                    safeToast.error("Please login");
                                                                     navigate("/login");
                                                                     return;
                                                                 }
                                                                 if (product.stock <= 0 || bundleProduct.stock <= 0) {
-                                                                    toast.error("Out of stock");
+                                                                    safeToast.error("Out of stock");
                                                                     return;
                                                                 }
                                                                 try {
                                                                     await addToCart(product._id, 1);
                                                                     await addToCart(bundleProduct._id, 1);
-                                                                    toast.success("Bundle added to cart");
+                                                                    safeToast.success("Bundle added to cart");
                                                                 } catch (error) {
-                                                                    // Handled in context
+                                                                    // Error handled in context - ensure no undefined values
+                                                                    const errorMsg = String(error?.response?.data?.message || error?.message || '');
+                                                                    if (errorMsg) {
+                                                                        safeToast.error(errorMsg);
+                                                                    }
                                                                 }
                                                             }}
                                                             className="w-full bg-[#5c2d16] hover:bg-gray-800 text-white py-3 rounded-lg font-semibold transition"
@@ -1125,10 +1387,10 @@ const ProductDetails = () => {
                             {tabs.map(tab => (
                                 <button
                                     key={tab.id}
-                                    onClick={() => setActiveTab(tab.id)}
+                                    onClick={() => handleTabChange(tab.id)}
                                     className={`py-4 font-medium text-sm whitespace-nowrap border-b-2 transition ${activeTab === tab.id
-                                            ? 'border-[#5c2d16] text-[#5c2d16]'
-                                            : 'border-transparent text-gray-500 hover:text-[#5c2d16]'
+                                        ? 'border-[#5c2d16] text-[#5c2d16]'
+                                        : 'border-transparent text-gray-500 hover:text-[#5c2d16]'
                                         }`}
                                 >
                                     {tab.label}
@@ -1140,7 +1402,7 @@ const ProductDetails = () => {
                             {/* Description Tab */}
                             {activeTab === 'description' && (
                                 <div className="prose max-w-none">
-                                    <p className="text-gray-700 leading-relaxed mb-6">{product.description}</p>
+                                    <p className="text-gray-700 leading-relaxed mb-6">{product.description || ''}</p>
                                     {product.attributes && Object.keys(product.attributes).length > 0 && (
                                         <div>
                                             <h3 className="text-lg font-bold mb-4">Product Details</h3>
@@ -1162,18 +1424,33 @@ const ProductDetails = () => {
                                 (Array.isArray(product.ingredients) && product.ingredients.length > 0) ||
                                 (typeof product.ingredients === 'string' && product.ingredients.trim() !== '')
                             ) && (
-                                    <div>
-                                        <h3 className="text-xl font-bold mb-6">Ingredients</h3>
-                                        <div className="space-y-4 max-w-3xl">
+                                    <div className="w-full">
+                                        <div className="mb-6">
+                                            <h3 className="text-2xl md:text-3xl font-bold text-[#5c2d16] mb-2">Key Ingredients</h3>
+                                            <p className="text-gray-600 text-sm md:text-base">Natural and authentic components for your wellness</p>
+                                        </div>
+                                        <div className="space-y-6 md:space-y-8">
                                             {Array.isArray(product.ingredients) ? (
                                                 product.ingredients.map((item, idx) => (
-                                                    <div key={idx} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
-                                                        <p className="text-gray-700 leading-relaxed">{item}</p>
-                                                    </div>
+                                                    <AlternatingCard
+                                                        key={idx}
+                                                        item={item}
+                                                        index={idx}
+                                                        icon={idx + 1}
+                                                        iconBgColor="bg-[#5c2d16]"
+                                                        cardBgColor="from-gray-50 to-white"
+                                                        borderColor="border-gray-200"
+                                                    />
                                                 ))
                                             ) : (
-                                                <div className="border border-gray-200 rounded-lg p-6">
-                                                    <p className="text-gray-700 leading-relaxed whitespace-pre-line">{product.ingredients}</p>
+                                                <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-xl md:rounded-2xl p-6 md:p-8 shadow-sm">
+                                                    <div className="flex items-center gap-3 mb-4">
+                                                        <div className="w-10 h-10 md:w-12 md:h-12 bg-[#5c2d16] rounded-full flex items-center justify-center flex-shrink-0">
+                                                            <span className="text-white text-lg md:text-xl font-bold">🌿</span>
+                                                        </div>
+                                                        <h4 className="text-lg md:text-xl font-bold text-[#5c2d16]">All Ingredients</h4>
+                                                    </div>
+                                                    <p className="text-gray-700 leading-relaxed text-sm md:text-base whitespace-pre-line">{product.ingredients}</p>
                                                 </div>
                                             )}
                                         </div>
@@ -1185,18 +1462,33 @@ const ProductDetails = () => {
                                 (Array.isArray(product.benefits) && product.benefits.length > 0) ||
                                 (typeof product.benefits === 'string' && product.benefits.trim() !== '')
                             ) && (
-                                    <div>
-                                        <h3 className="text-xl font-bold mb-6">Health Benefits</h3>
-                                        <div className="space-y-4 max-w-3xl">
+                                    <div className="w-full">
+                                        <div className="mb-6">
+                                            <h3 className="text-2xl md:text-3xl font-bold text-[#5c2d16] mb-2">Health Benefits</h3>
+                                            <p className="text-gray-600 text-sm md:text-base">Discover how this product enhances your well-being</p>
+                                        </div>
+                                        <div className="space-y-6 md:space-y-8">
                                             {Array.isArray(product.benefits) ? (
                                                 product.benefits.map((item, idx) => (
-                                                    <div key={idx} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
-                                                        <p className="text-gray-700 leading-relaxed">{item}</p>
-                                                    </div>
+                                                    <AlternatingCard
+                                                        key={idx}
+                                                        item={item}
+                                                        index={idx}
+                                                        icon="✓"
+                                                        iconBgColor="bg-green-600"
+                                                        cardBgColor="from-green-50 to-white"
+                                                        borderColor="border-green-100"
+                                                    />
                                                 ))
                                             ) : (
-                                                <div className="border border-gray-200 rounded-lg p-6">
-                                                    <p className="text-gray-700 leading-relaxed whitespace-pre-line">{product.benefits}</p>
+                                                <div className="bg-gradient-to-br from-green-50 to-white border-2 border-green-100 rounded-xl md:rounded-2xl p-6 md:p-8 shadow-sm">
+                                                    <div className="flex items-center gap-3 mb-4">
+                                                        <div className="w-10 h-10 md:w-12 md:h-12 bg-green-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                                            <span className="text-white text-xl md:text-2xl">✨</span>
+                                                        </div>
+                                                        <h4 className="text-lg md:text-xl font-bold text-[#5c2d16]">Key Benefits</h4>
+                                                    </div>
+                                                    <p className="text-gray-700 leading-relaxed text-sm md:text-base whitespace-pre-line">{product.benefits}</p>
                                                 </div>
                                             )}
                                         </div>
@@ -1205,256 +1497,367 @@ const ProductDetails = () => {
 
                             {/* Usage Tab */}
                             {activeTab === 'usage' && ((product.dosage && (
-                                (Array.isArray(product.dosage) && product.dosage.length > 0) || 
+                                (Array.isArray(product.dosage) && product.dosage.length > 0) ||
                                 (typeof product.dosage === 'string' && product.dosage.trim() !== '')
                             )) || (product.howToUse && (
-                                (Array.isArray(product.howToUse) && product.howToUse.length > 0) || 
+                                (Array.isArray(product.howToUse) && product.howToUse.length > 0) ||
                                 (typeof product.howToUse === 'string' && product.howToUse.trim() !== '')
                             )) || (product.howToConsume && (
-                                (Array.isArray(product.howToConsume) && product.howToConsume.length > 0) || 
+                                (Array.isArray(product.howToConsume) && product.howToConsume.length > 0) ||
                                 (typeof product.howToConsume === 'string' && product.howToConsume.trim() !== '')
                             )) || (product.storageInstructions && (
-                                (Array.isArray(product.storageInstructions) && product.storageInstructions.length > 0) || 
+                                (Array.isArray(product.storageInstructions) && product.storageInstructions.length > 0) ||
                                 (typeof product.storageInstructions === 'string' && product.storageInstructions.trim() !== '')
                             )) || (product.contraindications && (
-                                (Array.isArray(product.contraindications) && product.contraindications.length > 0) || 
+                                (Array.isArray(product.contraindications) && product.contraindications.length > 0) ||
                                 (typeof product.contraindications === 'string' && product.contraindications.trim() !== '')
                             ))) && (
-                                    <div>
-                                    {product.dosage && (
-                                        (Array.isArray(product.dosage) && product.dosage.length > 0) || 
-                                        (typeof product.dosage === 'string' && product.dosage.trim() !== '')
-                                    ) && (
-                                        <div className="bg-gray-50 border-l-4 border-gray-600 p-6 rounded mb-8">
-                                            <p className="font-bold text-[#5c2d16] mb-2">Dosage</p>
-                                            {Array.isArray(product.dosage) ? (
-                                                <ul className="list-disc list-inside space-y-2">
-                                                    {product.dosage.map((item, idx) => (
-                                                        <li key={idx} className="text-gray-700">{item}</li>
-                                                    ))}
-                                                </ul>
-                                            ) : (
-                                                <p className="text-gray-700">{product.dosage}</p>
+                                    <div className="w-full space-y-6 md:space-y-8">
+                                        {/* Dosage Section */}
+                                        {product.dosage && (
+                                            (Array.isArray(product.dosage) && product.dosage.length > 0) ||
+                                            (typeof product.dosage === 'string' && product.dosage.trim() !== '')
+                                        ) && (
+                                                <div className="bg-gradient-to-br from-blue-50 to-white border-2 border-blue-200 rounded-xl md:rounded-2xl p-5 md:p-7 shadow-sm">
+                                                    <div className="flex items-center gap-3 mb-4">
+                                                        <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                                            <span className="text-white text-xl md:text-2xl">💊</span>
+                                                        </div>
+                                                        <h4 className="text-lg md:text-xl font-bold text-[#5c2d16]">Dosage Instructions</h4>
+                                                    </div>
+                                                    {Array.isArray(product.dosage) ? (
+                                                        <ul className="space-y-3">
+                                                            {product.dosage.map((item, idx) => (
+                                                                <li key={idx} className="flex items-start gap-3 text-gray-700 text-sm md:text-base">
+                                                                    <span className="w-6 h-6 md:w-7 md:h-7 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs md:text-sm font-bold flex-shrink-0 mt-0.5">
+                                                                        {idx + 1}
+                                                                    </span>
+                                                                    <span className="flex-1">{typeof item === 'object' && item !== null ? (item.name || item.description || JSON.stringify(item)) : item}</span>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    ) : (
+                                                        <p className="text-gray-700 text-sm md:text-base leading-relaxed">{product.dosage}</p>
+                                                    )}
+                                                </div>
                                             )}
-                                        </div>
-                                    )}
 
+                                        {/* How to Use Section */}
                                         {product.howToUse && (
                                             (Array.isArray(product.howToUse) && product.howToUse.length > 0) ||
                                             (typeof product.howToUse === 'string' && product.howToUse.trim() !== '')
                                         ) && (
-                                                <div className="mb-8">
-                                                    <h4 className="font-bold mb-4">How to Use</h4>
-                                            {Array.isArray(product.howToUse) ? (
-                                                <div className="space-y-4">
-                                                    {product.howToUse.map((step, idx) => (
-                                                        <div key={idx} className="flex gap-4 border border-gray-200 rounded-lg p-4">
-                                                            <div className="w-8 h-8 bg-[#5c2d16] text-white rounded-full flex items-center justify-center font-bold flex-shrink-0">
-                                                                {idx + 1}
-                                                            </div>
-                                                            <div className="flex-1">
-                                                                <p className="text-gray-700 leading-relaxed">{step}</p>
-                                                            </div>
+                                                <div>
+                                                    <div className="mb-4 md:mb-6">
+                                                        <h4 className="text-xl md:text-2xl font-bold text-[#5c2d16] mb-2">How to Use</h4>
+                                                        <p className="text-gray-600 text-sm md:text-base">Follow these simple steps for best results</p>
+                                                    </div>
+                                                    {Array.isArray(product.howToUse) ? (
+                                                        <div className="space-y-6 md:space-y-8">
+                                                            {product.howToUse.map((step, idx) => {
+                                                                // For howToUse, we need to handle the step structure differently
+                                                                // Create a modified item structure for the AlternatingCard
+                                                                const cardItem = typeof step === 'object' && step !== null
+                                                                    ? {
+                                                                        image: step.image,
+                                                                        name: step.name,
+                                                                        description: step.description
+                                                                    }
+                                                                    : step;
+
+                                                                return (
+                                                                    <AlternatingCard
+                                                                        key={idx}
+                                                                        item={cardItem}
+                                                                        index={idx}
+                                                                        icon={idx + 1}
+                                                                        iconBgColor="bg-[#5c2d16]"
+                                                                        cardBgColor="from-blue-50 to-white"
+                                                                        borderColor="border-blue-200"
+                                                                    />
+                                                                );
+                                                            })}
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <div className="border border-gray-200 rounded-lg p-4">
-                                                    <p className="text-gray-700 leading-relaxed whitespace-pre-line">{product.howToUse}</p>
-                                                </div>
-                                            )}
+                                                    ) : (
+                                                        <div className="bg-white border-2 border-gray-200 rounded-xl md:rounded-2xl p-5 md:p-7 shadow-sm">
+                                                            <p className="text-gray-700 leading-relaxed text-sm md:text-base whitespace-pre-line">{product.howToUse}</p>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
 
+                                        {/* Consumption Methods */}
                                         {product.howToConsume && (
                                             (Array.isArray(product.howToConsume) && product.howToConsume.length > 0) ||
                                             (typeof product.howToConsume === 'string' && product.howToConsume.trim() !== '')
                                         ) && (
-                                                <div className="mb-8">
-                                                    <h4 className="font-bold mb-4">Consumption Methods</h4>
-                                            {Array.isArray(product.howToConsume) ? (
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    {product.howToConsume.map((method, idx) => (
-                                                        <div key={idx} className="border border-gray-200 rounded-lg p-4">
-                                                            <p className="text-gray-700 leading-relaxed">{method}</p>
+                                                <div>
+                                                    <div className="mb-4 md:mb-6">
+                                                        <h4 className="text-xl md:text-2xl font-bold text-[#5c2d16] mb-2">Consumption Methods</h4>
+                                                        <p className="text-gray-600 text-sm md:text-base">Different ways to incorporate this product</p>
+                                                    </div>
+                                                    {Array.isArray(product.howToConsume) ? (
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                                                            {product.howToConsume.map((method, idx) => (
+                                                                <div
+                                                                    key={idx}
+                                                                    className="bg-white border-2 border-gray-200 rounded-xl md:rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1"
+                                                                >
+                                                                    {typeof method === 'object' && method !== null && method.image && (
+                                                                        <div className="w-full h-40 md:h-48 bg-gray-100 overflow-hidden">
+                                                                            <img
+                                                                                src={method.image}
+                                                                                alt={method.name || `Method ${idx + 1}`}
+                                                                                className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
+                                                                            />
+                                                                        </div>
+                                                                    )}
+                                                                    <div className="p-4 md:p-6">
+                                                                        {typeof method === 'object' && method !== null ? (
+                                                                            <>
+                                                                                {method.name && (
+                                                                                    <h5 className="font-bold text-[#5c2d16] mb-2 text-base md:text-lg">{method.name}</h5>
+                                                                                )}
+                                                                                {method.description && (
+                                                                                    <p className="text-gray-700 leading-relaxed text-sm md:text-base">{method.description}</p>
+                                                                                )}
+                                                                            </>
+                                                                        ) : (
+                                                                            <p className="text-gray-700 leading-relaxed text-sm md:text-base">{method}</p>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <div className="border border-gray-200 rounded-lg p-4">
-                                                    <p className="text-gray-700 leading-relaxed whitespace-pre-line">{product.howToConsume}</p>
-                                                </div>
-                                            )}
+                                                    ) : (
+                                                        <div className="bg-white border-2 border-gray-200 rounded-xl md:rounded-2xl p-5 md:p-7 shadow-sm">
+                                                            <p className="text-gray-700 leading-relaxed text-sm md:text-base whitespace-pre-line">{product.howToConsume}</p>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
 
-                                    {product.storageInstructions && (
-                                        (Array.isArray(product.storageInstructions) && product.storageInstructions.length > 0) || 
-                                        (typeof product.storageInstructions === 'string' && product.storageInstructions.trim() !== '')
-                                    ) && (
-                                        <div className="bg-yellow-50 border-l-4 border-yellow-600 p-6 rounded">
-                                            <p className="font-bold text-[#5c2d16] mb-2">Storage</p>
-                                            {Array.isArray(product.storageInstructions) ? (
-                                                <ul className="list-disc list-inside space-y-2">
-                                                    {product.storageInstructions.map((item, idx) => (
-                                                        <li key={idx} className="text-gray-700">{item}</li>
-                                                    ))}
-                                                </ul>
-                                            ) : (
-                                                <p className="text-gray-700">{product.storageInstructions}</p>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {product.contraindications && (
-                                        (Array.isArray(product.contraindications) && product.contraindications.length > 0) || 
-                                        (typeof product.contraindications === 'string' && product.contraindications.trim() !== '')
-                                    ) && (
-                                        <div className="mt-8">
-                                            <div className="bg-red-50 border-l-4 border-red-600 p-6 rounded mb-6">
-                                                <p className="font-bold text-red-900 mb-2">⚠️ Precautions</p>
-                                                <p className="text-red-800 text-sm">Please read carefully and consult your healthcare provider if needed.</p>
-                                            </div>
-                                            {Array.isArray(product.contraindications) ? (
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    {product.contraindications.map((item, idx) => (
-                                                        <div key={idx} className="border border-red-200 rounded-lg p-4 bg-red-50">
-                                                            <p className="text-red-800 leading-relaxed">{item}</p>
+                                        {/* Storage Instructions */}
+                                        {product.storageInstructions && (
+                                            (Array.isArray(product.storageInstructions) && product.storageInstructions.length > 0) ||
+                                            (typeof product.storageInstructions === 'string' && product.storageInstructions.trim() !== '')
+                                        ) && (
+                                                <div className="bg-gradient-to-br from-yellow-50 to-white border-2 border-yellow-300 rounded-xl md:rounded-2xl p-5 md:p-7 shadow-sm">
+                                                    <div className="flex items-center gap-3 mb-4">
+                                                        <div className="w-10 h-10 md:w-12 md:h-12 bg-yellow-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                                            <span className="text-white text-xl md:text-2xl">📦</span>
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <div className="border border-red-200 rounded-lg p-4 bg-red-50">
-                                                    <p className="text-red-800 leading-relaxed whitespace-pre-line">{product.contraindications}</p>
+                                                        <h4 className="text-lg md:text-xl font-bold text-[#5c2d16]">Storage Instructions</h4>
+                                                    </div>
+                                                    {Array.isArray(product.storageInstructions) ? (
+                                                        <ul className="space-y-2">
+                                                            {product.storageInstructions.map((item, idx) => (
+                                                                <li key={idx} className="flex items-start gap-3 text-gray-700 text-sm md:text-base">
+                                                                    <span className="w-5 h-5 md:w-6 md:h-6 bg-yellow-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                                        <span className="text-white text-xs">•</span>
+                                                                    </span>
+                                                                    <span className="flex-1">{typeof item === 'object' && item !== null ? (item.name || item.description || JSON.stringify(item)) : item}</span>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    ) : (
+                                                        <p className="text-gray-700 text-sm md:text-base leading-relaxed">{product.storageInstructions}</p>
+                                                    )}
                                                 </div>
                                             )}
-                                        </div>
-                                    )}
+
+                                        {/* Precautions/Contraindications */}
+                                        {product.contraindications && (
+                                            (Array.isArray(product.contraindications) && product.contraindications.length > 0) ||
+                                            (typeof product.contraindications === 'string' && product.contraindications.trim() !== '')
+                                        ) && (
+                                                <div>
+                                                    <div className="bg-red-50 border-2 border-red-300 rounded-xl md:rounded-2xl p-5 md:p-6 mb-4 md:mb-6">
+                                                        <div className="flex items-start gap-3">
+                                                            <span className="text-2xl md:text-3xl flex-shrink-0">⚠️</span>
+                                                            <div>
+                                                                <p className="font-bold text-red-900 mb-1 text-base md:text-lg">Important Precautions</p>
+                                                                <p className="text-red-800 text-sm md:text-base">Please read carefully and consult your healthcare provider if needed.</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    {Array.isArray(product.contraindications) ? (
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                                                            {product.contraindications.map((item, idx) => (
+                                                                <div
+                                                                    key={idx}
+                                                                    className="bg-red-50 border-2 border-red-200 rounded-xl md:rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300"
+                                                                >
+                                                                    {typeof item === 'object' && item !== null && item.image && (
+                                                                        <div className="w-full h-40 md:h-48 bg-gray-100 overflow-hidden">
+                                                                            <img
+                                                                                src={item.image}
+                                                                                alt={item.name || `Precaution ${idx + 1}`}
+                                                                                className="w-full h-full object-cover"
+                                                                            />
+                                                                        </div>
+                                                                    )}
+                                                                    <div className="p-4 md:p-5">
+                                                                        {typeof item === 'object' && item !== null ? (
+                                                                            <>
+                                                                                {item.name && (
+                                                                                    <h5 className="font-bold text-red-900 mb-2 text-base md:text-lg">{item.name}</h5>
+                                                                                )}
+                                                                                {item.description && (
+                                                                                    <p className="text-red-800 leading-relaxed text-sm md:text-base">{item.description}</p>
+                                                                                )}
+                                                                            </>
+                                                                        ) : (
+                                                                            <p className="text-red-800 leading-relaxed text-sm md:text-base">{item}</p>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="bg-red-50 border-2 border-red-200 rounded-xl md:rounded-2xl p-5 md:p-7">
+                                                            <p className="text-red-800 leading-relaxed text-sm md:text-base whitespace-pre-line">{product.contraindications}</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                     </div>
                                 )}
 
                             {/* Specifications Tab */}
                             {activeTab === 'specifications' && (
-                                <div>
-                                    <h3 className="text-xl font-bold mb-6">Specifications</h3>
-                                    <dl className="grid grid-cols-2 gap-x-8 gap-y-4">
-                                        {product.manufacturer && (
-                                            <>
-                                                <dt className="text-sm text-gray-500">Manufacturer</dt>
-                                                <dd className="text-sm font-medium text-[#5c2d16]">{product.manufacturer}</dd>
-                                            </>
-                                        )}
-                                        {product.origin && (
-                                            <>
-                                                <dt className="text-sm text-gray-500">Origin</dt>
-                                                <dd className="text-sm font-medium text-[#5c2d16]">{product.origin}</dd>
-                                            </>
-                                        )}
-                                        {product.formulation && (
-                                            (Array.isArray(product.formulation) && product.formulation.length > 0) || 
-                                            (typeof product.formulation === 'string' && product.formulation.trim() !== '')
-                                        ) && (
-                                            <>
-                                                <dt className="text-sm text-gray-500">Form</dt>
-                                                <dd className="text-sm font-medium text-[#5c2d16]">
-                                                    {Array.isArray(product.formulation) ? product.formulation.join(', ') : product.formulation}
-                                                </dd>
-                                            </>
-                                        )}
-                                        {product.potency && (
-                                            <>
-                                                <dt className="text-sm text-gray-500">Potency</dt>
-                                                <dd className="text-sm font-medium text-[#5c2d16]">{product.potency}</dd>
-                                            </>
-                                        )}
-                                        {product.shelfLife && (
-                                            (Array.isArray(product.shelfLife) && product.shelfLife.length > 0) || 
-                                            (typeof product.shelfLife === 'string' && product.shelfLife.trim() !== '')
-                                        ) && (
-                                            <>
-                                                <dt className="text-sm text-gray-500">Shelf Life</dt>
-                                                <dd className="text-sm font-medium text-[#5c2d16]">
-                                                    {Array.isArray(product.shelfLife) ? product.shelfLife.join(', ') : product.shelfLife}
-                                                </dd>
-                                            </>
-                                        )}
-                                        {product.processingMethod && (
-                                            <>
-                                                <dt className="text-sm text-gray-500">Processing Method</dt>
-                                                <dd className="text-sm font-medium text-[#5c2d16]">{product.processingMethod}</dd>
-                                            </>
-                                        )}
-                                        {product.batchNumber && (
-                                            <>
-                                                <dt className="text-sm text-gray-500">Batch Number</dt>
-                                                <dd className="text-sm font-medium text-[#5c2d16]">{product.batchNumber}</dd>
-                                            </>
-                                        )}
-                                        {product.expiryDate && (
-                                            <>
-                                                <dt className="text-sm text-gray-500">Expiry Date</dt>
-                                                <dd className="text-sm font-medium text-[#5c2d16]">{new Date(product.expiryDate).toLocaleDateString()}</dd>
-                                            </>
-                                        )}
-                                        {product.attributes && Object.entries(product.attributes).map(([key, value]) => (
-                                            <React.Fragment key={key}>
-                                                <dt className="text-sm text-gray-500 capitalize">{key.replace(/([A-Z])/g, ' $1')}</dt>
-                                                <dd className="text-sm font-medium text-[#5c2d16]">{value}</dd>
-                                            </React.Fragment>
-                                        ))}
-                                    </dl>
+                                <div className="w-full">
+                                    <div className="mb-6 md:mb-8">
+                                        <h3 className="text-2xl md:text-3xl font-bold text-[#5c2d16] mb-2">Product Specifications</h3>
+                                        <p className="text-gray-600 text-sm md:text-base">Complete details about this product</p>
+                                    </div>
 
-                                    {/* Suitability */}
+                                    {/* Main Specifications Grid */}
+                                    <div className="bg-white border-2 border-gray-200 rounded-xl md:rounded-2xl p-5 md:p-7 mb-6 md:mb-8 shadow-sm">
+                                        <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                                            {product.manufacturer && (
+                                                <div className="border-b md:border-b-0 md:border-r border-gray-200 pb-4 md:pb-0 md:pr-6 last:border-0">
+                                                    <dt className="text-xs md:text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Manufacturer</dt>
+                                                    <dd className="text-sm md:text-base font-bold text-[#5c2d16]">{product.manufacturer}</dd>
+                                                </div>
+                                            )}
+                                            {product.origin && (
+                                                <div className="border-b md:border-b-0 md:border-r border-gray-200 pb-4 md:pb-0 md:pr-6 last:border-0">
+                                                    <dt className="text-xs md:text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Origin</dt>
+                                                    <dd className="text-sm md:text-base font-bold text-[#5c2d16]">{product.origin}</dd>
+                                                </div>
+                                            )}
+                                            {product.formulation && (
+                                                (Array.isArray(product.formulation) && product.formulation.length > 0) ||
+                                                (typeof product.formulation === 'string' && product.formulation.trim() !== '')
+                                            ) && (
+                                                    <div className="border-b md:border-b-0 md:border-r border-gray-200 pb-4 md:pb-0 md:pr-6 last:border-0">
+                                                        <dt className="text-xs md:text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Form</dt>
+                                                        <dd className="text-sm md:text-base font-bold text-[#5c2d16]">
+                                                            {Array.isArray(product.formulation) ? product.formulation.filter(Boolean).join(', ') : (product.formulation || '')}
+                                                        </dd>
+                                                    </div>
+                                                )}
+                                            {product.potency && (
+                                                <div className="border-b md:border-b-0 md:border-r border-gray-200 pb-4 md:pb-0 md:pr-6 last:border-0">
+                                                    <dt className="text-xs md:text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Potency</dt>
+                                                    <dd className="text-sm md:text-base font-bold text-[#5c2d16]">{product.potency}</dd>
+                                                </div>
+                                            )}
+                                            {product.shelfLife && (
+                                                (Array.isArray(product.shelfLife) && product.shelfLife.length > 0) ||
+                                                (typeof product.shelfLife === 'string' && product.shelfLife.trim() !== '')
+                                            ) && (
+                                                    <div className="border-b md:border-b-0 md:border-r border-gray-200 pb-4 md:pb-0 md:pr-6 last:border-0">
+                                                        <dt className="text-xs md:text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Shelf Life</dt>
+                                                        <dd className="text-sm md:text-base font-bold text-[#5c2d16]">
+                                                            {Array.isArray(product.shelfLife) ? product.shelfLife.filter(Boolean).join(', ') : (product.shelfLife || '')}
+                                                        </dd>
+                                                    </div>
+                                                )}
+                                            {product.processingMethod && (
+                                                <div className="border-b md:border-b-0 md:border-r border-gray-200 pb-4 md:pb-0 md:pr-6 last:border-0">
+                                                    <dt className="text-xs md:text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Processing Method</dt>
+                                                    <dd className="text-sm md:text-base font-bold text-[#5c2d16]">{product.processingMethod}</dd>
+                                                </div>
+                                            )}
+                                            {product.batchNumber && (
+                                                <div className="border-b md:border-b-0 md:border-r border-gray-200 pb-4 md:pb-0 md:pr-6 last:border-0">
+                                                    <dt className="text-xs md:text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Batch Number</dt>
+                                                    <dd className="text-sm md:text-base font-bold text-[#5c2d16]">{product.batchNumber}</dd>
+                                                </div>
+                                            )}
+                                            {product.expiryDate && (
+                                                <div className="border-b md:border-b-0 md:border-r border-gray-200 pb-4 md:pb-0 md:pr-6 last:border-0">
+                                                    <dt className="text-xs md:text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Expiry Date</dt>
+                                                    <dd className="text-sm md:text-base font-bold text-[#5c2d16]">{new Date(product.expiryDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</dd>
+                                                </div>
+                                            )}
+                                            {product.attributes && Object.entries(product.attributes).map(([key, value]) => (
+                                                <div key={key} className="border-b md:border-b-0 md:border-r border-gray-200 pb-4 md:pb-0 md:pr-6 last:border-0">
+                                                    <dt className="text-xs md:text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2 capitalize">{key.replace(/([A-Z])/g, ' $1')}</dt>
+                                                    <dd className="text-sm md:text-base font-bold text-[#5c2d16]">{value}</dd>
+                                                </div>
+                                            ))}
+                                        </dl>
+                                    </div>
+
+                                    {/* Suitability Section */}
                                     {((product.ageGroup && product.ageGroup.length > 0) ||
                                         (product.gender && product.gender.length > 0) ||
                                         (product.season && product.season.length > 0) ||
                                         (product.timeOfDay && product.timeOfDay.length > 0)) && (
-                                            <div className="mt-8 pt-8 border-t">
-                                                <h4 className="font-bold mb-4">Suitable For</h4>
-                                                <div className="grid grid-cols-4 gap-4">
+                                            <div className="bg-gradient-to-br from-purple-50 to-white border-2 border-purple-200 rounded-xl md:rounded-2xl p-5 md:p-7 shadow-sm">
+                                                <div className="flex items-center gap-3 mb-5 md:mb-6">
+                                                    <div className="w-10 h-10 md:w-12 md:h-12 bg-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                                        <span className="text-white text-xl md:text-2xl">👥</span>
+                                                    </div>
+                                                    <h4 className="text-lg md:text-xl font-bold text-[#5c2d16]">Suitable For</h4>
+                                                </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                                                     {product.ageGroup && product.ageGroup.length > 0 && (
-                                                        <div>
-                                                            <p className="text-xs text-gray-500 mb-2">Age Group</p>
-                                                            <div className="flex flex-wrap gap-1">
+                                                        <div className="bg-white rounded-lg p-4 border border-gray-200">
+                                                            <p className="text-xs md:text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Age Group</p>
+                                                            <div className="flex flex-wrap gap-2">
                                                                 {product.ageGroup.map((item, i) => (
-                                                                    <span key={i} className="bg-gray-100 px-2 py-1 rounded text-xs">{item}</span>
+                                                                    <span key={i} className="bg-purple-100 text-purple-800 px-3 py-1.5 rounded-full text-xs md:text-sm font-medium">{item}</span>
                                                                 ))}
                                                             </div>
                                                         </div>
                                                     )}
                                                     {product.gender && (
-                                                        (Array.isArray(product.gender) && product.gender.length > 0) || 
+                                                        (Array.isArray(product.gender) && product.gender.length > 0) ||
                                                         (typeof product.gender === 'string' && product.gender.trim() !== '')
                                                     ) && (
-                                                        <div>
-                                                            <p className="text-xs text-gray-500 mb-2">Gender</p>
-                                                            <div className="flex flex-wrap gap-1">
-                                                                {Array.isArray(product.gender) ? (
-                                                                    product.gender.map((item, i) => (
-                                                                        <span key={i} className="bg-gray-100 px-2 py-1 rounded text-xs">{item}</span>
-                                                                    ))
-                                                                ) : (
-                                                                    <span className="bg-gray-100 px-2 py-1 rounded text-xs">{product.gender}</span>
-                                                                )}
+                                                            <div className="bg-white rounded-lg p-4 border border-gray-200">
+                                                                <p className="text-xs md:text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Gender</p>
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {Array.isArray(product.gender) ? (
+                                                                        product.gender.map((item, i) => (
+                                                                            <span key={i} className="bg-purple-100 text-purple-800 px-3 py-1.5 rounded-full text-xs md:text-sm font-medium">{item}</span>
+                                                                        ))
+                                                                    ) : (
+                                                                        <span className="bg-purple-100 text-purple-800 px-3 py-1.5 rounded-full text-xs md:text-sm font-medium">{product.gender}</span>
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    )}
+                                                        )}
                                                     {product.season && product.season.length > 0 && (
-                                                        <div>
-                                                            <p className="text-xs text-gray-500 mb-2">Season</p>
-                                                            <div className="flex flex-wrap gap-1">
+                                                        <div className="bg-white rounded-lg p-4 border border-gray-200">
+                                                            <p className="text-xs md:text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Season</p>
+                                                            <div className="flex flex-wrap gap-2">
                                                                 {product.season.map((item, i) => (
-                                                                    <span key={i} className="bg-gray-100 px-2 py-1 rounded text-xs">{item}</span>
+                                                                    <span key={i} className="bg-purple-100 text-purple-800 px-3 py-1.5 rounded-full text-xs md:text-sm font-medium">{item}</span>
                                                                 ))}
                                                             </div>
                                                         </div>
                                                     )}
                                                     {product.timeOfDay && product.timeOfDay.length > 0 && (
-                                                        <div>
-                                                            <p className="text-xs text-gray-500 mb-2">Best Time</p>
-                                                            <div className="flex flex-wrap gap-1">
+                                                        <div className="bg-white rounded-lg p-4 border border-gray-200">
+                                                            <p className="text-xs md:text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Best Time</p>
+                                                            <div className="flex flex-wrap gap-2">
                                                                 {product.timeOfDay.map((item, i) => (
-                                                                    <span key={i} className="bg-gray-100 px-2 py-1 rounded text-xs">{item}</span>
+                                                                    <span key={i} className="bg-purple-100 text-purple-800 px-3 py-1.5 rounded-full text-xs md:text-sm font-medium">{item}</span>
                                                                 ))}
                                                             </div>
                                                         </div>
@@ -1644,7 +2047,7 @@ const ProductDetails = () => {
                                         className="border border-gray-200 rounded-lg cursor-pointer hover:shadow-lg transition"
                                     >
                                         <div className="h-48 flex items-center justify-center bg-gray-50 rounded-t-lg">
-                                            <img src={item.images?.[0]} alt={item.name} className="max-h-full max-w-full object-contain p-4" />
+                                            <LazyImage src={item.images?.[0]} alt={item.name} className="max-h-full max-w-full object-contain p-4" />
                                         </div>
                                         <div className="p-4">
                                             <h3 className="font-medium text-[#5c2d16] mb-2 line-clamp-2 text-sm">{item.name}</h3>

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import toast from 'react-hot-toast';
 import { getAllProducts, deleteProduct, getAllCategories } from '../../../services/adminService';
 import BackButton from '../../../components/common/BackButton';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import SearchBar from '../../../components/admin/common/SearchBar';
 import FilterSelect from '../../../components/admin/common/FilterSelect';
 import ViewToggle from '../../../components/admin/common/ViewToggle';
@@ -10,9 +10,14 @@ import Pagination from '../../../components/admin/common/Pagination';
 import SortSelect from '../../../components/admin/common/SortSelect';
 import ItemsPerPageSelect from '../../../components/admin/common/ItemsPerPageSelect';
 import LoadingSpinner from '../../../components/admin/common/LoadingSpinner';
+import { RiGalleryFill, RiRefreshLine } from 'react-icons/ri';
+import { LuPlus } from 'react-icons/lu';
+import { FaRegEdit, FaTrash } from 'react-icons/fa';
+
 
 const AdminProducts = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -37,9 +42,9 @@ const AdminProducts = () => {
     // Track image load errors
     const [imageErrors, setImageErrors] = useState(new Set());
 
-    // Refs to prevent multiple simultaneous requests
-    const fetchingRef = useRef(false);
+    // Refs for request management
     const abortControllerRef = useRef(null);
+    const previousLocationRef = useRef(location.pathname);
 
     // Debounce search term
     useEffect(() => {
@@ -67,17 +72,16 @@ const AdminProducts = () => {
     }, []);
 
     const fetchProducts = useCallback(async () => {
-        // Prevent multiple simultaneous requests
-        if (fetchingRef.current) {
-            return;
-        }
-
         // Abort previous request if still pending
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
 
-        fetchingRef.current = true;
+        // Create new AbortController for this request
+        abortControllerRef.current = new AbortController();
+        const currentAbortController = abortControllerRef.current;
+
+        // Set loading state for initial load or when explicitly needed
         setLoading(true);
 
         try {
@@ -91,10 +95,14 @@ const AdminProducts = () => {
                 ...(sortBy && { sortBy })
             };
 
-            const result = await getAllProducts(params);
-            
+            const result = await getAllProducts(params, currentAbortController.signal);
+
             // Check if request was aborted
-            if (abortControllerRef.current?.signal.aborted) {
+            if (currentAbortController.signal.aborted || result.aborted) {
+                // Reset loading state if aborted
+                if (abortControllerRef.current === currentAbortController) {
+                    setLoading(false);
+                }
                 return;
             }
 
@@ -103,50 +111,117 @@ const AdminProducts = () => {
                 const responseData = result.data || {};
 
                 // Check if products is an array, otherwise default to empty array
-                const productsArray = Array.isArray(responseData.products)
-                    ? responseData.products
-                    : (Array.isArray(responseData) ? responseData : []);
+                // Handle null/undefined safely
+                let productsArray = [];
+                if (Array.isArray(responseData.products)) {
+                    productsArray = responseData.products;
+                } else if (Array.isArray(responseData)) {
+                    productsArray = responseData;
+                }
 
-                // Batch state updates for better performance
-                setProducts(productsArray);
-                setTotalPages(responseData.pages || 1);
-                setTotalProducts(responseData.total || 0);
+                // Update state immediately - React will batch these updates
+                // Only update if this is still the current request
+                if (abortControllerRef.current === currentAbortController) {
+                    setProducts([...productsArray]);
+                    setTotalPages(responseData.pages || 1);
+                    setTotalProducts(responseData.total || 0);
+                    setLoading(false);
+                }
+
             } else {
-                console.error('Error fetching products:', result.message);
-                // Batch state updates on error
-                setProducts([]);
-                setTotalPages(1);
-                setTotalProducts(0);
-                toast.error(result.message || 'Failed to fetch products');
+                console.error('❌ Error fetching products:', result.message);
+                // Only update state if this is still the current request
+                if (abortControllerRef.current === currentAbortController) {
+                    setProducts([]);
+                    setTotalPages(1);
+                    setTotalProducts(0);
+                    setLoading(false);
+                    toast.error(result.message || 'Failed to fetch products');
+                }
             }
         } catch (error) {
             // Don't show error if request was aborted
-            if (error.name === 'AbortError' || abortControllerRef.current?.signal.aborted) {
+            if (error.name === 'AbortError' || error.code === 'ERR_CANCELED' || currentAbortController.signal.aborted) {
+                // Reset loading state if aborted
+                if (abortControllerRef.current === currentAbortController) {
+                    setLoading(false);
+                }
                 return;
             }
-            console.error('Error fetching products:', error);
-            // Batch state updates on error
-            setProducts([]);
-            setTotalPages(1);
-            setTotalProducts(0);
-            toast.error('Failed to fetch products. Please try again.');
-        } finally {
-            fetchingRef.current = false;
-            setLoading(false);
+            console.error('❌ Error fetching products:', error);
+            // Only update state if this is still the current request
+            if (abortControllerRef.current === currentAbortController) {
+                setProducts([]);
+                setTotalPages(1);
+                setTotalProducts(0);
+                setLoading(false);
+                toast.error('Failed to fetch products. Please try again.');
+            }
         }
     }, [currentPage, itemsPerPage, debouncedSearchTerm, filterCategory, filterStatus, filterStock, sortBy]);
 
+    // Initial data fetch on mount and when filters change
     useEffect(() => {
+        // Fetch categories first (non-blocking, doesn't block products)
         fetchCategories();
-    }, [fetchCategories]);
-
-    useEffect(() => {
+        
+        // Fetch products immediately - no delays
         fetchProducts();
-    }, [fetchProducts]);
+
+        // Cleanup function to abort request on unmount or when dependencies change
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
+    }, [fetchProducts, fetchCategories]);
+
+    // Refresh data when navigating back from edit/create pages
+    useEffect(() => {
+        const currentPath = location.pathname;
+        const previousPath = previousLocationRef.current;
+
+        // Only refresh if we actually navigated from edit/create page
+        if (previousPath && previousPath !== currentPath) {
+            const state = location.state;
+            if (state?.from === 'edit' || state?.from === 'create') {
+                // Fetch immediately without delay
+                fetchProducts();
+                fetchCategories();
+            } else if (previousPath.includes('/edit/') || previousPath.includes('/create')) {
+                // Fallback: detect if previous path was edit/create (when state is not available)
+                fetchProducts();
+                fetchCategories();
+            }
+        }
+
+        previousLocationRef.current = currentPath;
+    }, [location.pathname, location.state, fetchProducts, fetchCategories]);
+
+    // Refresh data when window regains focus (user switches back to tab)
+    useEffect(() => {
+        const handleFocus = () => {
+            // Only refresh if we haven't refreshed recently (avoid excessive refreshes)
+            const lastRefresh = sessionStorage.getItem('lastProductsRefresh');
+            const now = Date.now();
+            if (!lastRefresh || (now - parseInt(lastRefresh)) > 2000) {
+                sessionStorage.setItem('lastProductsRefresh', now.toString());
+                fetchProducts();
+                fetchCategories();
+            }
+        };
+
+        window.addEventListener('focus', handleFocus);
+        return () => {
+            window.removeEventListener('focus', handleFocus);
+        };
+    }, [fetchProducts, fetchCategories]);
 
     // Clear image errors when products change
     useEffect(() => {
-        setImageErrors(new Set());
+        if (products && products.length > 0) {
+            setImageErrors(new Set());
+        }
     }, [products]);
 
     const handleDeleteProduct = useCallback(async (productId, productName) => {
@@ -158,23 +233,46 @@ const AdminProducts = () => {
                 {
                     loading: 'Deleting product...',
                     success: 'Product deleted successfully!',
-                    error: (err) => err?.message || 'Failed to delete product',
+                    error: (err) => {
+                        // Show detailed error message, especially for order-related errors
+                        const errorMsg = err?.message || err?.response?.data?.message || 'Failed to delete product';
+                        return errorMsg;
+                    },
                 }
             );
 
             const result = await deletePromise;
             if (result.success) {
                 // Optimistically update UI - remove product from list immediately
-                setProducts(prev => prev.filter(p => p._id !== productId));
+                setProducts(prev => {
+                    const updated = prev.filter(p => p._id !== productId);
+                    // If current page becomes empty and not on first page, go to previous page
+                    if (updated.length === 0 && currentPage > 1) {
+                        setCurrentPage(prevPage => Math.max(1, prevPage - 1));
+                    }
+                    return updated;
+                });
                 setTotalProducts(prev => Math.max(0, prev - 1));
-                // Refresh the product list in background
+                // Refresh the product list in background to ensure consistency
                 fetchProducts();
             } else {
-                // Error is already shown by toast.promise, but we can add additional handling if needed
-                console.error('Delete failed:', result.message);
+                // Show detailed error message
+                const errorMessage = result.message || 'Failed to delete product';
+                console.error('Delete failed:', errorMessage);
+
+                // If it's an order-related error, show a more helpful message
+                if (errorMessage.includes('order') || errorMessage.includes('Order')) {
+                    toast.error(errorMessage, {
+                        duration: 6000, // Show longer for important messages
+                        style: {
+                            background: '#fee2e2',
+                            color: '#991b1b',
+                        }
+                    });
+                }
             }
         }
-    }, [fetchProducts]);
+    }, [fetchProducts, currentPage]);
 
     const handlePageChange = useCallback((page) => {
         setCurrentPage(page);
@@ -230,7 +328,7 @@ const AdminProducts = () => {
         navigate(`/admin/products/edit/${productId}`);
     }, [navigate]);
 
-    if (loading && products.length === 0) {
+    if (loading && (!products || products.length === 0)) {
         return <LoadingSpinner fullScreen />;
     }
 
@@ -249,30 +347,17 @@ const AdminProducts = () => {
                         <button
                             onClick={handleRefresh}
                             disabled={loading}
-                            className="bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            className="bg-gray-200 p-2 rounded-lg"
                             title="Refresh products"
                         >
-                            <svg
-                                className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                xmlns="http://www.w3.org/2000/svg"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                                />
-                            </svg>
-                            Refresh
+                            <RiRefreshLine className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
                         </button>
                         <button
                             onClick={handleNavigateToCreate}
-                            className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold whitespace-nowrap"
+                            className="bg-gray-200 p-2 rounded-lg flex items-center gap-2"
                         >
-                            + Add Product
+                            <LuPlus className="w-5 h-5" />
+                            Add Product
                         </button>
                     </div>
                 </div>
@@ -342,92 +427,11 @@ const AdminProducts = () => {
                 </div>
 
                 {loading && <LoadingSpinner />}
-
-                {/* Card View */}
                 {!loading && viewMode === 'card' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {products.map((product) => {
-                            const hasImage = product.images && product.images[0] && !imageErrors.has(product._id);
-                            const handleImageError = () => {
-                                setImageErrors(prev => new Set([...prev, product._id]));
-                            };
-                            
-                            return (
-                            <div key={product._id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow">
-                                <div className="relative h-48 bg-gray-200">
-                                    {hasImage ? (
-                                        <img
-                                            src={product.images[0]}
-                                            alt={product.name}
-                                            className="w-full h-full object-cover"
-                                            onError={handleImageError}
-                                            loading="lazy"
-                                        />
-                                    ) : (
-                                        <div className="flex items-center justify-center h-full text-gray-400">
-                                            No Image
-                                        </div>
-                                    )}
-                                    <span className={`absolute top-2 right-2 px-3 py-1 text-xs font-semibold rounded-full ${product.stock > 0
-                                            ? 'bg-green-100 text-green-800'
-                                            : 'bg-red-100 text-red-800'
-                                        }`}>
-                                        {product.stock > 0 ? 'In Stock' : 'Out of Stock'}
-                                    </span>
-                                    {!product.isActive && (
-                                        <span className="absolute top-2 left-2 px-3 py-1 text-xs font-semibold rounded-full bg-gray-500 text-white">
-                                            Inactive
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="p-6">
-                                    <h3 className="text-xl font-semibold text-[#5c2d16] mb-2 line-clamp-2">
-                                        {product.name}
-                                    </h3>
-                                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                                        {product.description || 'No description'}
-                                    </p>
-                                    {product.category?.name && (
-                                        <p className="text-xs text-gray-500 mb-3">
-                                            📁 {product.category.name}
-                                        </p>
-                                    )}
-                                    <div className="flex justify-between items-center mb-4">
-                                        <div>
-                                            <span className="text-2xl font-bold text-green-600">
-                                                ₹{product.price}
-                                            </span>
-                                            {product.discountPrice && product.discountPrice < product.price && (
-                                                <span className="text-gray-400 line-through ml-2 text-sm">
-                                                    ₹{product.discountPrice}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="text-sm text-gray-600">
-                                            Stock: <span className="font-semibold">{product.stock}</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex space-x-2">
-                                        <button
-                                            onClick={() => handleNavigateToEdit(product._id)}
-                                            className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
-                                        >
-                                            Edit
-                                        </button>
-                                        <button
-                                            onClick={() => handleDeleteProduct(product._id, product.name)}
-                                            className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
-                                        >
-                                            Delete
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            );
-                        })}
+                    <div className="text-center text-gray-500">
+                        Not available
                     </div>
                 )}
-
                 {/* Table View */}
                 {!loading && viewMode === 'table' && (
                     <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -459,93 +463,109 @@ const AdminProducts = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {products.map((product) => {
+                                    {products && products.length > 0 ? products
+                                        .filter(product => product && product._id)
+                                        .map((product) => {
                                         const hasImage = product.images && product.images[0] && !imageErrors.has(product._id);
                                         const handleImageError = () => {
                                             setImageErrors(prev => new Set([...prev, product._id]));
                                         };
-                                        
+
                                         return (
-                                        <tr key={product._id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="h-16 w-16 rounded-lg overflow-hidden bg-gray-100">
-                                                    {hasImage ? (
-                                                        <img
-                                                            src={product.images[0]}
-                                                            alt={product.name}
-                                                            className="h-full w-full object-cover"
-                                                            onError={handleImageError}
-                                                            loading="lazy"
-                                                        />
+                                            <tr key={product._id} className="hover:bg-gray-50 transition-colors">
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="h-16 w-16 rounded-lg overflow-hidden bg-gray-100">
+                                                        {hasImage ? (
+                                                            <img
+                                                                src={product.images[0]}
+                                                                alt={product.name}
+                                                                className="h-full w-full object-cover"
+                                                                onError={handleImageError}
+                                                                loading="lazy"
+                                                            />
+                                                        ) : (
+                                                            <div className="flex items-center justify-center h-full text-gray-400 text-xs">
+                                                                No Image
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="text-sm font-medium text-[#5c2d16] max-w-xs truncate">
+                                                        {product.name}
+                                                    </div>
+                                                    <div className="text-xs text-gray-500 max-w-xs truncate">
+                                                        {product.description || 'No description'}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded">
+                                                        {product.category?.name || 'N/A'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    {product.discountPrice && product.discountPrice < product.price ? (
+                                                        <>
+                                                            <div className="text-sm font-bold text-gray-600">
+                                                                ₹{product.discountPrice}
+                                                            </div>
+                                                            <div className="text-xs text-gray-400 line-through">
+                                                                ₹{product.price}
+                                                            </div>
+                                                        </>
                                                     ) : (
-                                                        <div className="flex items-center justify-center h-full text-gray-400 text-xs">
-                                                            No Image
+                                                        <div className="text-sm font-bold text-gray-600">
+                                                            ₹{product.price}
                                                         </div>
                                                     )}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="text-sm font-medium text-[#5c2d16] max-w-xs truncate">
-                                                    {product.name}
-                                                </div>
-                                                <div className="text-xs text-gray-500 max-w-xs truncate">
-                                                    {product.description || 'No description'}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded">
-                                                    {product.category?.name || 'N/A'}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm font-bold text-green-600">
-                                                    ₹{product.price}
-                                                </div>
-                                                {product.discountPrice && product.discountPrice < product.price && (
-                                                    <div className="text-xs text-gray-400 line-through">
-                                                        ₹{product.discountPrice}
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${product.stock > 10
-                                                        ? 'bg-green-100 text-green-800'
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${product.stock > 10
+                                                        ? 'bg-gray-100 text-gray-800'
                                                         : product.stock > 0
                                                             ? 'bg-yellow-100 text-yellow-800'
                                                             : 'bg-red-100 text-red-800'
-                                                    }`}>
-                                                    {product.stock > 0 ? `${product.stock} units` : 'Out of Stock'}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${product.isActive
-                                                        ? 'bg-green-100 text-green-800'
+                                                        }`}>
+                                                        {product.stock > 0 ? `${product.stock} units` : 'Out of Stock'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${product.isActive
+                                                        ? 'bg-gray-100 text-gray-800'
                                                         : 'bg-gray-100 text-gray-800'
-                                                    }`}>
-                                                    {product.isActive ? 'Active' : 'Inactive'}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <div className="flex justify-end gap-2">
-                                                    <button
-                                                        onClick={() => handleNavigateToEdit(product._id)}
-                                                        className="text-gray-600 hover:text-gray-900 font-medium"
-                                                        title="Edit product"
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteProduct(product._id, product.name)}
-                                                        className="text-red-600 hover:text-red-900 font-medium"
-                                                        title="Delete product"
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </div>
+                                                        }`}>
+                                                        {product.isActive ? 'Active' : 'Inactive'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                    <div className="flex justify-end gap-2">
+                                                        <button
+                                                            onClick={() => handleNavigateToEdit(product._id)}
+                                                            className="text-gray-600 hover:text-gray-900 font-medium"
+                                                            title="Edit product"
+                                                        >
+                                                            <FaRegEdit className="w-5 h-5 text-green-700" />
+
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteProduct(product._id, product.name)}
+                                                            className="text-red-600 hover:text-red-900 font-medium"
+                                                            title="Delete product"
+                                                        >
+                                                            <FaTrash className="w-5 h-5 text-red-700" />
+
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    }) : (
+                                        <tr>
+                                            <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                                                No products available
                                             </td>
                                         </tr>
-                                        );
-                                    })}
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -555,9 +575,7 @@ const AdminProducts = () => {
                 {/* No Results */}
                 {!loading && products.length === 0 && (
                     <div className="text-center py-12 bg-white rounded-lg shadow-md">
-                        <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                        </svg>
+                        <RiGalleryFill className="mx-auto h-12 w-12 text-gray-400" />
                         <h3 className="mt-2 text-sm font-medium text-[#5c2d16]">No products found</h3>
                         <p className="mt-1 text-sm text-gray-500">
                             {searchTerm || filterStatus || filterStock || filterCategory
@@ -568,7 +586,7 @@ const AdminProducts = () => {
                             <div className="mt-6">
                                 <button
                                     onClick={handleNavigateToCreate}
-                                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+                                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700"
                                 >
                                     + Add Product
                                 </button>

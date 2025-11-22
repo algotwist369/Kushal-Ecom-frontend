@@ -117,16 +117,46 @@ const CartCheckout = () => {
             return;
         }
 
+        // Check if cart has items
+        if (!cart?.items || cart.items.length === 0) {
+            toast.error('Your cart is empty');
+            return;
+        }
+
         setLoadingCoupon(true);
         try {
-            const productIds = cart.items.map(item => item.product._id);
-            const categoryIds = [...new Set(cart.items.map(item => item.product.category?._id || item.product.category).filter(Boolean))];
+            // Ensure subtotal is valid
+            if (!subtotal || subtotal <= 0) {
+                toast.error('Invalid cart total');
+                setLoadingCoupon(false);
+                return;
+            }
+
+            // Extract product IDs - handle both populated and non-populated products
+            const productIds = cart.items
+                .map(item => {
+                    const product = item.product;
+                    if (!product) return null;
+                    return product._id || product;
+                })
+                .filter(Boolean);
+
+            // Extract category IDs - handle both populated and non-populated categories
+            const categoryIds = [...new Set(
+                cart.items
+                    .map(item => {
+                        const category = item.product?.category;
+                        if (!category) return null;
+                        return category._id || category;
+                    })
+                    .filter(Boolean)
+            )];
 
             const response = await api.post('/coupons/validate', {
-                couponCode: couponCode.toUpperCase(),
+                couponCode: couponCode.trim().toUpperCase(),
                 orderAmount: subtotal,
-                productIds,
-                categoryIds
+                productIds: productIds.length > 0 ? productIds : [],
+                categoryIds: categoryIds.length > 0 ? categoryIds : []
             });
 
             if (response.data.valid) {
@@ -135,7 +165,8 @@ const CartCheckout = () => {
                 toast.success(`Coupon applied! You saved ₹${response.data.discount}`);
             }
         } catch (error) {
-            toast.error(error.response?.data?.message || "Invalid coupon code");
+            const errorMessage = error.response?.data?.message || "Invalid coupon code";
+            toast.error(errorMessage);
             setAppliedCoupon(null);
             setCouponDiscount(0);
         } finally {

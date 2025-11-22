@@ -17,6 +17,8 @@ const AdminProductEdit = () => {
     // Refs to prevent multiple simultaneous requests
     const fetchingRef = useRef(false);
     const abortControllerRef = useRef(null);
+    const idRef = useRef(id); // Track ID to prevent unnecessary re-fetches
+    const isMountedRef = useRef(true); // Track if component is mounted
     
     const [formData, setFormData] = useState({
         // Basic fields
@@ -72,9 +74,19 @@ const AdminProductEdit = () => {
         keywords: []
     });
 
+    // Ref to always have latest formData for submission (declared after formData state)
+    const formDataRef = useRef(formData);
+
     const fetchData = useCallback(async () => {
         // Prevent multiple simultaneous requests
         if (fetchingRef.current) {
+            return;
+        }
+
+        // Validate ID exists
+        if (!id) {
+            setError('Product ID is missing. Please navigate from the products list.');
+            setLoading(false);
             return;
         }
 
@@ -83,32 +95,91 @@ const AdminProductEdit = () => {
             abortControllerRef.current.abort();
         }
 
+        // Create new AbortController for this request
+        abortControllerRef.current = new AbortController();
+        const currentAbortController = abortControllerRef.current;
+
         fetchingRef.current = true;
         setLoading(true);
         setError('');
 
         try {
-            const [productResult, categoriesResult] = await Promise.all([
-                getProductById(id),
-                getAllCategories()
-            ]);
+            // Make API calls with individual error handling and abort signal
+            let productResult, categoriesResult;
+            try {
+                productResult = await getProductById(id, currentAbortController.signal);
+                
+                // Check if request was aborted or superseded after API call
+                if (productResult.aborted) {
+                    return;
+                }
+                
+                if (currentAbortController.signal.aborted || abortControllerRef.current !== currentAbortController) {
+                    return;
+                }
+            } catch (productErr) {
+                // Don't treat abort as error
+                if (productErr.name === 'AbortError' || currentAbortController.signal.aborted) {
+                    return;
+                }
+                productResult = {
+                    success: false,
+                    message: productErr.message || 'Failed to fetch product'
+                };
+            }
+            
+            // Check again before categories call
+            if (currentAbortController.signal.aborted || abortControllerRef.current !== currentAbortController) {
+                return;
+            }
+            
+            try {
+                categoriesResult = await getAllCategories();
+                
+                // Check if request was aborted after categories API call
+                if (currentAbortController.signal.aborted || abortControllerRef.current !== currentAbortController) {
+                    return;
+                }
+            } catch (categoryErr) {
+                // Don't treat abort as error
+                if (categoryErr.name === 'AbortError' || currentAbortController.signal.aborted) {
+                    return;
+                }
+                categoriesResult = {
+                    success: false,
+                    message: categoryErr.message || 'Failed to fetch categories'
+                };
+            }
 
-            // Check if request was aborted
-            if (abortControllerRef.current?.signal.aborted) {
+            // Check if request was aborted or superseded BEFORE processing results
+            if (currentAbortController.signal.aborted) {
+                return;
+            }
+
+            // Double check - ensure we're still the current request
+            if (abortControllerRef.current !== currentAbortController) {
                 return;
             }
 
             if (productResult.success) {
                 const product = productResult.data;
-                setFormData({
+                
+                // Validate product data exists
+                if (!product) {
+                    setError('Product data is missing. Please try again.');
+                    return;
+                }
+                
+                // Note: We intentionally don't include 'slug' in formData as it's auto-generated from name
+                const newFormData = {
                     name: product.name || '',
                     description: product.description || '',
-                    price: product.price || '',
-                    discountPrice: product.discountPrice || '',
-                    stock: product.stock !== undefined ? product.stock : '',
+                    price: product.price !== undefined && product.price !== null ? product.price : '',
+                    discountPrice: product.discountPrice !== undefined && product.discountPrice !== null ? product.discountPrice : '',
+                    stock: product.stock !== undefined && product.stock !== null ? product.stock : '',
                     category: product.category?._id || product.category || '',
-                    images: product.images?.length ? product.images : [''],
-                    attributes: product.attributes || {},
+                    images: Array.isArray(product.images) && product.images.length > 0 ? product.images : [''],
+                    attributes: product.attributes && typeof product.attributes === 'object' ? product.attributes : {},
                     isActive: product.isActive !== undefined ? product.isActive : true,
                     
                     ingredients: Array.isArray(product.ingredients) && product.ingredients.length > 0 ? product.ingredients : [{ image: '', name: '', description: '' }],
@@ -134,10 +205,30 @@ const AdminProductEdit = () => {
                     howToStore: Array.isArray(product.howToStore) && product.howToStore.length > 0 ? product.howToStore : [{ image: '', name: '', description: '' }],
                     howToConsume: Array.isArray(product.howToConsume) && product.howToConsume.length > 0 ? product.howToConsume : [{ image: '', name: '', description: '' }],
                     
-                    // Pack & Combo Options
-                    packOptions: product.packOptions?.length ? product.packOptions : [{ packSize: '', packPrice: '', savingsPercent: '', label: '', image: '' }],
-                    freeProducts: product.freeProducts?.length ? product.freeProducts : [{ product: '', minQuantity: '', quantity: '' }],
-                    bundleWith: product.bundleWith?.length ? product.bundleWith : [{ product: '', bundlePrice: '', savingsAmount: '' }],
+                    // Pack & Combo Options - show empty array if no data, otherwise show actual data
+                    packOptions: Array.isArray(product.packOptions) && product.packOptions.length > 0 
+                        ? product.packOptions.map(p => ({
+                            packSize: p.packSize !== undefined ? p.packSize : '',
+                            packPrice: p.packPrice !== undefined ? p.packPrice : '',
+                            savingsPercent: p.savingsPercent !== undefined ? p.savingsPercent : '',
+                            label: p.label || '',
+                            image: p.image || ''
+                        }))
+                        : [],
+                    freeProducts: Array.isArray(product.freeProducts) && product.freeProducts.length > 0
+                        ? product.freeProducts.map(f => ({
+                            product: f.product?._id || f.product || '',
+                            minQuantity: f.minQuantity !== undefined ? f.minQuantity : '',
+                            quantity: f.quantity !== undefined ? f.quantity : ''
+                        }))
+                        : [],
+                    bundleWith: Array.isArray(product.bundleWith) && product.bundleWith.length > 0
+                        ? product.bundleWith.map(b => ({
+                            product: b.product?._id || b.product || '',
+                            bundlePrice: b.bundlePrice !== undefined ? b.bundlePrice : '',
+                            savingsAmount: b.savingsAmount !== undefined ? b.savingsAmount : ''
+                        }))
+                        : [],
                     offerText: product.offerText || '',
                     isOnOffer: product.isOnOffer || false,
                     
@@ -149,9 +240,30 @@ const AdminProductEdit = () => {
                     metaTitle: product.metaTitle || '',
                     metaDescription: product.metaDescription || '',
                     keywords: Array.isArray(product.keywords) && product.keywords.length > 0 ? product.keywords : ['']
-                });
+                };
+                
+                // Double check again before setting state - ensure we're still the current request and component is mounted
+                if (abortControllerRef.current === currentAbortController 
+                    && !currentAbortController.signal.aborted 
+                    && isMountedRef.current) {
+                    // Use functional update to ensure we're setting the complete state
+                    setFormData(prev => newFormData);
+                    formDataRef.current = newFormData;
+                }
             } else {
-                setError(productResult.message);
+                // Set detailed error message
+                let errorMessage = 'Failed to fetch product. ';
+                if (productResult.message) {
+                    errorMessage += productResult.message;
+                } else if (productResult.data?.message) {
+                    errorMessage += productResult.data.message;
+                } else {
+                    errorMessage += 'Please check if the product exists or try again later.';
+                }
+                
+                setError(errorMessage);
+                setLoading(false);
+                return; // Exit early if product fetch failed
             }
 
             if (categoriesResult.success) {
@@ -160,31 +272,87 @@ const AdminProductEdit = () => {
                 setCategories(Array.isArray(categoriesData) ? categoriesData : []);
             } else {
                 setCategories([]);
-                console.error('Failed to fetch categories:', categoriesResult.message);
             }
         } catch (err) {
             // Don't show error if request was aborted
-            if (err.name === 'AbortError' || abortControllerRef.current?.signal.aborted) {
+            if (err.name === 'AbortError' || currentAbortController.signal.aborted) {
                 return;
             }
-            setError('Failed to fetch product details');
+
+            // Check if request was superseded
+            if (abortControllerRef.current !== currentAbortController) {
+                return;
+            }
+
+            // Show more detailed error message
+            const errorMessage = err.response?.data?.message 
+                || err.message 
+                || 'Failed to fetch product details. Please try again.';
+            setError(errorMessage);
             setCategories([]);
         } finally {
-            fetchingRef.current = false;
-            setLoading(false);
+            // Only reset if this is still the current request
+            if (abortControllerRef.current === currentAbortController) {
+                fetchingRef.current = false;
+                setLoading(false);
+            }
         }
     }, [id]);
 
     useEffect(() => {
+        // Only fetch if we have an ID
+        if (!id) {
+            setLoading(false);
+            return;
+        }
+
+        // Skip if ID hasn't changed and fetch is already in progress
+        if (idRef.current === id && fetchingRef.current) {
+            return;
+        }
+
+        // Update ID ref and mounted status
+        const previousId = idRef.current;
+        idRef.current = id;
+        isMountedRef.current = true;
+        
+        // Call fetchData - it's stable and will use the current id
         fetchData();
         
-        // Cleanup function to abort request on unmount
+        // Cleanup function to abort request on unmount or when id changes
         return () => {
+            // Only abort if ID actually changed (not on initial mount in strict mode)
+            if (previousId !== id && previousId) {
+                if (abortControllerRef.current) {
+                    abortControllerRef.current.abort();
+                }
+                fetchingRef.current = false;
+            } else if (!isMountedRef.current) {
+                // On unmount, abort current request
+                if (abortControllerRef.current) {
+                    abortControllerRef.current.abort();
+                }
+                fetchingRef.current = false;
+            }
+        };
+        // Only depend on id - fetchData is stable due to useCallback
+    }, [id, fetchData]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            isMountedRef.current = false;
             if (abortControllerRef.current) {
                 abortControllerRef.current.abort();
             }
+            fetchingRef.current = false;
         };
-    }, [fetchData]);
+    }, []);
+
+    // Keep formDataRef in sync with formData state for reliable access in handleSubmit
+    useEffect(() => {
+        formDataRef.current = formData;
+    }, [formData]);
 
     const handleChange = useCallback((e) => {
         const { name, value, type, checked } = e.target;
@@ -240,7 +408,6 @@ const AdminProductEdit = () => {
                 toast.success('Pack option image uploaded successfully');
             }
         } catch (error) {
-            console.error('Error uploading pack option image:', error);
             toast.error('Failed to upload pack option image');
         }
     }, [handleObjectArrayChange]);
@@ -285,61 +452,187 @@ const AdminProductEdit = () => {
     const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
         setError('');
+        
+        // Prevent multiple submissions
+        if (saving) {
+            return;
+        }
+        
         setSaving(true);
 
         try {
-            // Get latest formData using functional update pattern
-            let submitData;
-            setFormData(prev => {
-                // Clean up data before submission - exclude slug (it's auto-generated from name)
-                const { slug, ...formDataWithoutSlug } = prev;
-                submitData = {
-                    ...formDataWithoutSlug,
-                    price: Number(prev.price),
-                    discountPrice: prev.discountPrice ? Number(prev.discountPrice) : undefined,
-                    stock: Number(prev.stock),
-                    images: Array.isArray(prev.images) ? prev.images.filter(img => img && img.trim() !== '') : [],
-                    keywords: Array.isArray(prev.keywords) ? prev.keywords.filter(k => k && k.trim() !== '') : [],
-                    // Object arrays - send as-is after filtering empty objects (always send array)
-                    ingredients: Array.isArray(prev.ingredients) ? prev.ingredients.filter(item => item && (item.name || item.image || item.description)) : [],
-                    benefits: Array.isArray(prev.benefits) ? prev.benefits.filter(item => item && (item.name || item.image || item.description)) : [],
-                    contraindications: Array.isArray(prev.contraindications) ? prev.contraindications.filter(item => item && (item.name || item.image || item.description)) : [],
-                    certification: Array.isArray(prev.certification) ? prev.certification.filter(item => item && (item.name || item.image || item.description)) : [],
-                    howToUse: Array.isArray(prev.howToUse) ? prev.howToUse.filter(item => item && (item.name || item.image || item.description)) : [],
-                    howToStore: Array.isArray(prev.howToStore) ? prev.howToStore.filter(item => item && (item.name || item.image || item.description)) : [],
-                    howToConsume: Array.isArray(prev.howToConsume) ? prev.howToConsume.filter(item => item && (item.name || item.image || item.description)) : [],
-                    // String fields - send as strings (empty string is valid)
-                    dosage: prev.dosage?.trim() || '',
-                    shelfLife: prev.shelfLife?.trim() || '',
-                    storageInstructions: prev.storageInstructions?.trim() || '',
-                    formulation: prev.formulation?.trim() || '',
-                    metaTitle: prev.metaTitle?.trim() || '',
-                    // Array fields - send empty arrays if no values (controller handles empty arrays)
-                    ageGroup: prev.ageGroup,
-                    gender: prev.gender,
-                    season: prev.season,
-                    timeOfDay: prev.timeOfDay,
-                    faq: Array.isArray(prev.faq) ? prev.faq.filter(f => f && f.question && f.answer) : [],
-                    packOptions: Array.isArray(prev.packOptions) ? prev.packOptions.filter(p => p && p.packSize && p.packPrice).map(p => ({
-                        packSize: Number(p.packSize),
-                        packPrice: Number(p.packPrice),
-                        savingsPercent: p.savingsPercent ? Number(p.savingsPercent) : undefined,
+            // Get current formData from ref (always has latest value)
+            const currentFormData = formDataRef.current;
+
+            // Validate formData exists
+            if (!currentFormData || typeof currentFormData !== 'object') {
+                setError('Form data is not available. Please refresh the page and try again.');
+                setSaving(false);
+                return;
+            }
+
+            // Validate required fields
+            if (!currentFormData.name || currentFormData.name.trim() === '') {
+                setError('Product name is required');
+                setSaving(false);
+                return;
+            }
+
+            const priceNum = Number(currentFormData.price);
+            if (isNaN(priceNum) || priceNum < 0) {
+                setError('Valid product price is required');
+                setSaving(false);
+                return;
+            }
+
+            const stockNum = Number(currentFormData.stock);
+            if (isNaN(stockNum) || stockNum < 0) {
+                setError('Valid stock quantity is required');
+                setSaving(false);
+                return;
+            }
+
+            if (!currentFormData.category || currentFormData.category.trim() === '') {
+                setError('Category is required');
+                setSaving(false);
+                return;
+            }
+
+            // Validate discount price if provided
+            let discountPriceNum = null;
+            if (currentFormData.discountPrice !== undefined && currentFormData.discountPrice !== null && currentFormData.discountPrice.toString().trim() !== '') {
+                discountPriceNum = Number(currentFormData.discountPrice);
+                if (isNaN(discountPriceNum) || discountPriceNum < 0) {
+                    setError('Invalid discount price');
+                    setSaving(false);
+                    return;
+                }
+                if (discountPriceNum >= priceNum) {
+                    setError('Discount price must be less than regular price');
+                    setSaving(false);
+                    return;
+                }
+            }
+
+            // Clean up data before submission - explicitly exclude slug (it's auto-generated from name in backend)
+            const { slug, ...formDataWithoutSlug } = currentFormData;
+            
+            // Prepare submitData with proper transformations
+            const submitData = {
+                ...formDataWithoutSlug,
+                price: priceNum,
+                discountPrice: discountPriceNum,
+                stock: stockNum,
+                images: Array.isArray(currentFormData.images) ? currentFormData.images.filter(img => img && typeof img === 'string' && img.trim() !== '') : [],
+                keywords: Array.isArray(currentFormData.keywords) ? currentFormData.keywords.filter(k => k && typeof k === 'string' && k.trim() !== '') : [],
+                // Object arrays - send as-is after filtering empty objects (always send array)
+                ingredients: Array.isArray(currentFormData.ingredients) ? currentFormData.ingredients.filter(item => {
+                    if (!item || typeof item !== 'object') return false;
+                    return (item.name && typeof item.name === 'string' && item.name.trim() !== '') ||
+                           (item.image && typeof item.image === 'string' && item.image.trim() !== '') ||
+                           (item.description && typeof item.description === 'string' && item.description.trim() !== '');
+                }) : [],
+                benefits: Array.isArray(currentFormData.benefits) ? currentFormData.benefits.filter(item => {
+                    if (!item || typeof item !== 'object') return false;
+                    return (item.name && typeof item.name === 'string' && item.name.trim() !== '') ||
+                           (item.image && typeof item.image === 'string' && item.image.trim() !== '') ||
+                           (item.description && typeof item.description === 'string' && item.description.trim() !== '');
+                }) : [],
+                contraindications: Array.isArray(currentFormData.contraindications) ? currentFormData.contraindications.filter(item => {
+                    if (!item || typeof item !== 'object') return false;
+                    return (item.name && typeof item.name === 'string' && item.name.trim() !== '') ||
+                           (item.image && typeof item.image === 'string' && item.image.trim() !== '') ||
+                           (item.description && typeof item.description === 'string' && item.description.trim() !== '');
+                }) : [],
+                certification: Array.isArray(currentFormData.certification) ? currentFormData.certification.filter(item => {
+                    if (!item || typeof item !== 'object') return false;
+                    return (item.name && typeof item.name === 'string' && item.name.trim() !== '') ||
+                           (item.image && typeof item.image === 'string' && item.image.trim() !== '') ||
+                           (item.description && typeof item.description === 'string' && item.description.trim() !== '');
+                }) : [],
+                howToUse: Array.isArray(currentFormData.howToUse) ? currentFormData.howToUse.filter(item => {
+                    if (!item || typeof item !== 'object') return false;
+                    return (item.name && typeof item.name === 'string' && item.name.trim() !== '') ||
+                           (item.image && typeof item.image === 'string' && item.image.trim() !== '') ||
+                           (item.description && typeof item.description === 'string' && item.description.trim() !== '');
+                }) : [],
+                howToStore: Array.isArray(currentFormData.howToStore) ? currentFormData.howToStore.filter(item => {
+                    if (!item || typeof item !== 'object') return false;
+                    return (item.name && typeof item.name === 'string' && item.name.trim() !== '') ||
+                           (item.image && typeof item.image === 'string' && item.image.trim() !== '') ||
+                           (item.description && typeof item.description === 'string' && item.description.trim() !== '');
+                }) : [],
+                howToConsume: Array.isArray(currentFormData.howToConsume) ? currentFormData.howToConsume.filter(item => {
+                    if (!item || typeof item !== 'object') return false;
+                    return (item.name && typeof item.name === 'string' && item.name.trim() !== '') ||
+                           (item.image && typeof item.image === 'string' && item.image.trim() !== '') ||
+                           (item.description && typeof item.description === 'string' && item.description.trim() !== '');
+                }) : [],
+                // String fields - send as strings (empty string is valid)
+                dosage: currentFormData.dosage?.trim() || '',
+                shelfLife: currentFormData.shelfLife?.trim() || '',
+                storageInstructions: currentFormData.storageInstructions?.trim() || '',
+                formulation: currentFormData.formulation?.trim() || '',
+                metaTitle: currentFormData.metaTitle?.trim() || '',
+                metaDescription: currentFormData.metaDescription?.trim() || '',
+                // Array fields - send empty arrays if no values (controller handles empty arrays)
+                ageGroup: currentFormData.ageGroup || [],
+                gender: currentFormData.gender || [],
+                season: currentFormData.season || [],
+                timeOfDay: currentFormData.timeOfDay || [],
+                faq: Array.isArray(currentFormData.faq) ? currentFormData.faq.filter(f => {
+                    if (!f || typeof f !== 'object') return false;
+                    return (f.question && typeof f.question === 'string' && f.question.trim() !== '') &&
+                           (f.answer && typeof f.answer === 'string' && f.answer.trim() !== '');
+                }) : [],
+                packOptions: Array.isArray(currentFormData.packOptions) ? currentFormData.packOptions.filter(p => p && p.packSize && p.packPrice).map(p => {
+                    const packSizeNum = Number(p.packSize);
+                    const packPriceNum = Number(p.packPrice);
+                    if (isNaN(packSizeNum) || packSizeNum < 1 || isNaN(packPriceNum) || packPriceNum < 0) {
+                        return null; // Filter out invalid entries
+                    }
+                    return {
+                        packSize: packSizeNum,
+                        packPrice: packPriceNum,
+                        savingsPercent: p.savingsPercent && !isNaN(Number(p.savingsPercent)) ? Number(p.savingsPercent) : undefined,
                         label: p.label?.trim() || undefined,
                         image: p.image?.trim() || undefined
-                    })) : [],
-                    freeProducts: Array.isArray(prev.freeProducts) ? prev.freeProducts.filter(f => f && f.product && f.minQuantity && f.quantity).map(f => ({
+                    };
+                }).filter(p => p !== null) : [],
+                freeProducts: Array.isArray(currentFormData.freeProducts) ? currentFormData.freeProducts.filter(f => f && f.product && f.minQuantity && f.quantity).map(f => {
+                    const minQty = Number(f.minQuantity);
+                    const qty = Number(f.quantity);
+                    if (isNaN(minQty) || minQty < 1 || isNaN(qty) || qty < 1) {
+                        return null;
+                    }
+                    return {
                         product: f.product,
-                        minQuantity: Number(f.minQuantity),
-                        quantity: Number(f.quantity)
-                    })) : [],
-                    bundleWith: Array.isArray(prev.bundleWith) ? prev.bundleWith.filter(b => b && b.product && b.bundlePrice).map(b => ({
+                        minQuantity: minQty,
+                        quantity: qty
+                    };
+                }).filter(f => f !== null) : [],
+                bundleWith: Array.isArray(currentFormData.bundleWith) ? currentFormData.bundleWith.filter(b => b && b.product && b.bundlePrice).map(b => {
+                    const bundlePriceNum = Number(b.bundlePrice);
+                    if (isNaN(bundlePriceNum) || bundlePriceNum < 0) {
+                        return null;
+                    }
+                    return {
                         product: b.product,
-                        bundlePrice: Number(b.bundlePrice),
-                        savingsAmount: b.savingsAmount ? Number(b.savingsAmount) : undefined
-                    })) : []
-                };
-                return prev; // Return unchanged state
-            });
+                        bundlePrice: bundlePriceNum,
+                        savingsAmount: b.savingsAmount && !isNaN(Number(b.savingsAmount)) ? Number(b.savingsAmount) : undefined
+                    };
+                }).filter(b => b !== null) : []
+            };
+            
+            // Explicitly remove slug if it somehow exists (triple safety)
+            delete submitData.slug;
+
+            // Validate submitData is not empty
+            if (!submitData || Object.keys(submitData).length === 0) {
+                setError('No data to update. Please fill in at least one field.');
+                setSaving(false);
+                return;
+            }
 
             const updatePromise = updateProduct(id, submitData);
             
@@ -348,36 +641,62 @@ const AdminProductEdit = () => {
                 {
                     loading: 'Updating product...',
                     success: 'Product updated successfully!',
-                    error: 'Failed to update product',
+                    error: (err) => {
+                        const errorMsg = err?.message || err?.response?.data?.message || 'Failed to update product';
+                        return errorMsg;
+                    },
                 }
             );
 
             const result = await updatePromise;
             
             if (result.success) {
-                setTimeout(() => navigate('/admin/products'), 1000);
+                // Navigate after a short delay to show success message
+                setTimeout(() => {
+                    navigate('/admin/products', { state: { from: 'edit' } });
+                }, 1000);
             } else {
                 // Handle validation errors from backend
                 const errorMessage = result.message || 'Failed to update product';
                 setError(errorMessage);
+                
+                // Show detailed error in toast
+                toast.error(errorMessage, {
+                    duration: 5000,
+                });
+                
                 // If it's a validation error with details, show them
                 if (result.errors && Array.isArray(result.errors)) {
-                    const errorDetails = result.errors.map(err => `${err.msg || err.message}`).join(', ');
+                    const errorDetails = result.errors.map(err => `${err.msg || err.message || err}`).join(', ');
                     setError(`${errorMessage}: ${errorDetails}`);
+                    toast.error(`${errorMessage}: ${errorDetails}`, {
+                        duration: 6000,
+                    });
                 }
             }
         } catch (err) {
+            // Don't show error if it's already handled
+            if (err.name === 'AbortError' || err.code === 'ERR_CANCELED') {
+                setSaving(false);
+                return;
+            }
+            
             const errorMessage = err.response?.data?.message || err.message || 'Failed to update product. Please try again.';
             setError(errorMessage);
+            
             // Handle validation errors
             if (err.response?.data?.errors && Array.isArray(err.response.data.errors)) {
-                const errorDetails = err.response.data.errors.map(err => `${err.msg || err.message}`).join(', ');
+                const errorDetails = err.response.data.errors.map(err => `${err.msg || err.message || err}`).join(', ');
                 setError(`${errorMessage}: ${errorDetails}`);
             }
+            
+            toast.error(errorMessage, {
+                duration: 5000,
+            });
         } finally {
             setSaving(false);
         }
-    }, [id, navigate]);
+    }, [id, navigate, saving]);
 
     const goToStep = useCallback((step) => {
         setCurrentStep(step);
@@ -408,7 +727,31 @@ const AdminProductEdit = () => {
     if (loading) {
         return (
             <div className="flex justify-center items-center min-h-screen">
-                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-600"></div>
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading product data...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Show error if no product data loaded and not in initial state
+    if (!formData.name && !loading && id) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-6 px-4 sm:px-6 lg:px-8">
+                <div className="max-w-6xl mx-auto">
+                    <BackButton to="/admin/products" label="Back to Products" />
+                    <div className="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-r-lg mb-6 shadow-sm">
+                        <div className="flex items-center">
+                            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                            <span className="text-sm font-medium">
+                                {error || 'Failed to load product data. Please try again.'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -1403,7 +1746,10 @@ const AdminProductEdit = () => {
                         {/* Pack Options */}
                         <div className="mb-6">
                             <h3 className="text-lg font-semibold text-gray-700 mb-2">Pack Options</h3>
-                            {formData.packOptions.map((pack, index) => (
+                            {(!formData.packOptions || formData.packOptions.length === 0) && (
+                                <p className="text-sm text-gray-500 mb-3">No pack options added yet. Click "Add Pack Option" to create one.</p>
+                            )}
+                            {(formData.packOptions || []).map((pack, index) => (
                                 <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
                                     <div>
                                         <label className="block text-xs text-gray-600 mb-1">Pack Size *</label>
@@ -1411,7 +1757,7 @@ const AdminProductEdit = () => {
                                             type="number"
                                             min="1"
                                             placeholder="Pack Size"
-                                            value={pack.packSize}
+                                            value={pack.packSize !== undefined && pack.packSize !== null ? pack.packSize : ''}
                                             onChange={(e) => handleObjectArrayChange('packOptions', index, 'packSize', e.target.value)}
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                                             disabled={saving}
@@ -1423,7 +1769,7 @@ const AdminProductEdit = () => {
                                             type="number"
                                             min="0"
                                             placeholder="Pack Price"
-                                            value={pack.packPrice}
+                                            value={pack.packPrice !== undefined && pack.packPrice !== null ? pack.packPrice : ''}
                                             onChange={(e) => handleObjectArrayChange('packOptions', index, 'packPrice', e.target.value)}
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                                             disabled={saving}
@@ -1435,7 +1781,7 @@ const AdminProductEdit = () => {
                                             type="number"
                                             min="0"
                                             placeholder="Savings %"
-                                            value={pack.savingsPercent}
+                                            value={pack.savingsPercent !== undefined && pack.savingsPercent !== null ? pack.savingsPercent : ''}
                                             onChange={(e) => handleObjectArrayChange('packOptions', index, 'savingsPercent', e.target.value)}
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                                             disabled={saving}
@@ -1446,7 +1792,7 @@ const AdminProductEdit = () => {
                                         <input
                                             type="text"
                                             placeholder="Label"
-                                            value={pack.label}
+                                            value={pack.label || ''}
                                             onChange={(e) => handleObjectArrayChange('packOptions', index, 'label', e.target.value)}
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                                             disabled={saving}
@@ -1514,12 +1860,15 @@ const AdminProductEdit = () => {
                         {/* Free Products */}
                         <div className="mb-6">
                             <h3 className="text-lg font-semibold text-gray-700 mb-2">Free Products (Buy X Get Y)</h3>
-                            {formData.freeProducts.map((item, index) => (
+                            {(!formData.freeProducts || formData.freeProducts.length === 0) && (
+                                <p className="text-sm text-gray-500 mb-3">No free product rules added yet. Click "Add Free Product Rule" to create one.</p>
+                            )}
+                            {(formData.freeProducts || []).map((item, index) => (
                                 <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
                                     <input
                                         type="text"
                                         placeholder="Product ID"
-                                        value={item.product}
+                                        value={item.product || ''}
                                         onChange={(e) => handleObjectArrayChange('freeProducts', index, 'product', e.target.value)}
                                         className="px-4 py-2 border border-gray-300 rounded-lg"
                                         disabled={saving}
@@ -1528,7 +1877,7 @@ const AdminProductEdit = () => {
                                         type="number"
                                         min="1"
                                         placeholder="Min Quantity"
-                                        value={item.minQuantity}
+                                        value={item.minQuantity !== undefined && item.minQuantity !== null ? item.minQuantity : ''}
                                         onChange={(e) => handleObjectArrayChange('freeProducts', index, 'minQuantity', e.target.value)}
                                         className="px-4 py-2 border border-gray-300 rounded-lg"
                                         disabled={saving}
@@ -1537,7 +1886,7 @@ const AdminProductEdit = () => {
                                         type="number"
                                         min="1"
                                         placeholder="Free Quantity"
-                                        value={item.quantity}
+                                        value={item.quantity !== undefined && item.quantity !== null ? item.quantity : ''}
                                         onChange={(e) => handleObjectArrayChange('freeProducts', index, 'quantity', e.target.value)}
                                         className="px-4 py-2 border border-gray-300 rounded-lg"
                                         disabled={saving}
@@ -1567,12 +1916,15 @@ const AdminProductEdit = () => {
                         {/* Bundle With */}
                         <div className="mb-6">
                             <h3 className="text-lg font-semibold text-gray-700 mb-2">Bundle With</h3>
-                            {formData.bundleWith.map((item, index) => (
+                            {(!formData.bundleWith || formData.bundleWith.length === 0) && (
+                                <p className="text-sm text-gray-500 mb-3">No bundle options added yet. Click "Add Bundle Option" to create one.</p>
+                            )}
+                            {(formData.bundleWith || []).map((item, index) => (
                                 <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
                                     <input
                                         type="text"
                                         placeholder="Bundle Product ID"
-                                        value={item.product}
+                                        value={item.product || ''}
                                         onChange={(e) => handleObjectArrayChange('bundleWith', index, 'product', e.target.value)}
                                         className="px-4 py-2 border border-gray-300 rounded-lg"
                                         disabled={saving}
@@ -1581,7 +1933,7 @@ const AdminProductEdit = () => {
                                         type="number"
                                         min="0"
                                         placeholder="Bundle Price"
-                                        value={item.bundlePrice}
+                                        value={item.bundlePrice !== undefined && item.bundlePrice !== null ? item.bundlePrice : ''}
                                         onChange={(e) => handleObjectArrayChange('bundleWith', index, 'bundlePrice', e.target.value)}
                                         className="px-4 py-2 border border-gray-300 rounded-lg"
                                         disabled={saving}
@@ -1590,7 +1942,7 @@ const AdminProductEdit = () => {
                                         type="number"
                                         min="0"
                                         placeholder="Savings Amount"
-                                        value={item.savingsAmount}
+                                        value={item.savingsAmount !== undefined && item.savingsAmount !== null ? item.savingsAmount : ''}
                                         onChange={(e) => handleObjectArrayChange('bundleWith', index, 'savingsAmount', e.target.value)}
                                         className="px-4 py-2 border border-gray-300 rounded-lg"
                                         disabled={saving}

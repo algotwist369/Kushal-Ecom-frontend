@@ -64,14 +64,26 @@ export const updateUser = async (userId, userData) => {
 };
 
 // ============= PRODUCTS MANAGEMENT =============
-export const getAllProducts = async (params = {}) => {
+export const getAllProducts = async (params = {}, signal = null) => {
     try {
-        const response = await api.get('/products/admin/all', { params });
+        const config = { params };
+        if (signal) {
+            config.signal = signal;
+        }
+        const response = await api.get('/products/admin/all', config);
         return {
             success: true,
             data: response.data
         };
     } catch (error) {
+        // Don't treat AbortError as a real error
+        if (error.name === 'AbortError' || error.code === 'ERR_CANCELED') {
+            return {
+                success: false,
+                message: 'Request was cancelled',
+                aborted: true
+            };
+        }
         return {
             success: false,
             message: error.response?.data?.message || 'Failed to fetch products'
@@ -79,17 +91,41 @@ export const getAllProducts = async (params = {}) => {
     }
 };
 
-export const getProductById = async (productId) => {
+export const getProductById = async (productId, signal) => {
     try {
-        const response = await api.get(`/products/${productId}`);
+        console.log('📡 API call: GET /products/' + productId);
+        const response = await api.get(`/products/${productId}`, { signal });
+        console.log('📡 API response received:', {
+            status: response.status,
+            hasData: !!response.data,
+            dataKeys: response.data ? Object.keys(response.data) : []
+        });
         return {
             success: true,
             data: response.data
         };
     } catch (error) {
+        // Don't treat AbortError as a real error
+        if (error.name === 'AbortError' || error.code === 'ERR_CANCELED') {
+            console.log('⚠️ API call was aborted');
+            return {
+                success: false,
+                message: 'Request was cancelled',
+                aborted: true
+            };
+        }
+        console.error('❌ API call failed:', {
+            productId,
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            message: error.response?.data?.message || error.message,
+            data: error.response?.data
+        });
         return {
             success: false,
-            message: error.response?.data?.message || 'Failed to fetch product'
+            message: error.response?.data?.message || error.message || 'Failed to fetch product',
+            status: error.response?.status,
+            error: error
         };
     }
 };
@@ -112,16 +148,61 @@ export const createProduct = async (productData) => {
 
 export const updateProduct = async (productId, productData) => {
     try {
-        const response = await api.put(`/products/${productId}`, productData);
+        // Ensure productData is a valid object
+        if (!productData || typeof productData !== 'object') {
+            return {
+                success: false,
+                message: 'Product data must be an object'
+            };
+        }
+
+        // Validate productId
+        if (!productId || typeof productId !== 'string') {
+            return {
+                success: false,
+                message: 'Valid product ID is required'
+            };
+        }
+
+        // Ensure Content-Type is set correctly
+        const response = await api.put(`/products/${productId}`, productData, {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
         return {
             success: true,
             data: response.data
         };
     } catch (error) {
+        // Handle network errors
+        if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+            return {
+                success: false,
+                message: 'Network error. Please check your connection and try again.'
+            };
+        }
+
+        // Handle abort errors silently
+        if (error.name === 'AbortError' || error.code === 'ERR_CANCELED') {
+            return {
+                success: false,
+                message: 'Request was cancelled',
+                aborted: true
+            };
+        }
+
+        // Extract detailed error information
+        const errorMessage = error.response?.data?.message || error.message || 'Failed to update product';
+        const errorStatus = error.response?.status;
+        const validationErrors = error.response?.data?.errors;
+
         return {
             success: false,
-            message: error.response?.data?.message || 'Failed to update product',
-            errors: error.response?.data?.errors // Include validation errors if available
+            message: errorMessage,
+            status: errorStatus,
+            errors: validationErrors
         };
     }
 };
@@ -136,7 +217,8 @@ export const deleteProduct = async (productId) => {
     } catch (error) {
         return {
             success: false,
-            message: error.response?.data?.message || 'Failed to delete product'
+            message: error.response?.data?.message || error.message || 'Failed to delete product',
+            status: error.response?.status
         };
     }
 };
