@@ -28,17 +28,37 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
-            // Unauthorized - token invalid, blacklisted, or user deleted
-            console.warn('🚫 Unauthorized:', error.response?.data?.message);
+            // Unauthorized - token invalid, blacklisted, user deleted, or account inactive
+            const errorMessage = error.response?.data?.message || '';
+            const lowerMessage = errorMessage.toLowerCase();
             
-            // Only clear storage and redirect if it's authentication failure (not permission issue)
-            const isAuthFailure = error.response?.data?.message?.toLowerCase().includes('token') ||
-                                  error.response?.data?.message?.toLowerCase().includes('authentication') ||
-                                  error.response?.data?.message?.toLowerCase().includes('logged');
+            console.warn('🚫 Unauthorized:', errorMessage);
+            
+            // Check if it's an authentication failure that requires logout
+            const isAuthFailure = lowerMessage.includes('token') ||
+                                  lowerMessage.includes('authentication') ||
+                                  lowerMessage.includes('logged') ||
+                                  lowerMessage.includes('inactive') ||
+                                  lowerMessage.includes('no longer exists') ||
+                                  lowerMessage.includes('not authorized') ||
+                                  lowerMessage.includes('session expired');
             
             if (isAuthFailure) {
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
+                
+                // Show appropriate message for inactive accounts
+                if (lowerMessage.includes('inactive') || lowerMessage.includes('no longer exists')) {
+                    // Don't show alert if already on login page
+                    if (!window.location.pathname.includes('/login') && 
+                        !window.location.pathname.includes('/signup')) {
+                        // Use a more user-friendly approach - let the login page show the error
+                        // Or show a toast notification if available
+                        if (window.toast) {
+                            window.toast.error('Your account is inactive or has been deactivated. Please contact support.');
+                        }
+                    }
+                }
                 
                 // Only redirect if not already on login/signup
                 if (!window.location.pathname.includes('/login') && 

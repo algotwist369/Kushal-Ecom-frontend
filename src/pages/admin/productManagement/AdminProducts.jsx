@@ -63,11 +63,32 @@ const AdminProducts = () => {
     const fetchCategories = useCallback(async () => {
         try {
             const result = await getAllCategories();
-            if (result.success) {
-                setCategories(result.data.categories || result.data || []);
+            if (result.success && result.data) {
+                // Backend returns { categories: [...], total: ..., page: ... }
+                // Handle both possible response structures
+                let categoriesData = [];
+                
+                if (Array.isArray(result.data)) {
+                    // If data is directly an array
+                    categoriesData = result.data;
+                } else if (Array.isArray(result.data.categories)) {
+                    // If data is an object with categories property
+                    categoriesData = result.data.categories;
+                } else if (result.data.categories && !Array.isArray(result.data.categories)) {
+                    // If categories exists but is not an array, try to convert
+                    categoriesData = [];
+                }
+                
+                // Always ensure it's an array
+                setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+            } else {
+                // If request failed, ensure categories is still an array
+                setCategories([]);
             }
         } catch (error) {
             console.error('Error fetching categories:', error);
+            // On error, ensure categories is still an array
+            setCategories([]);
         }
     }, []);
 
@@ -314,10 +335,17 @@ const AdminProducts = () => {
     ], []);
 
     // Memoize category options
-    const categoryOptions = useMemo(() => [
-        { value: '', label: 'All Categories' },
-        ...categories.map(cat => ({ value: cat._id, label: cat.name }))
-    ], [categories]);
+    const categoryOptions = useMemo(() => {
+        // Ensure categories is always an array
+        const safeCategories = Array.isArray(categories) ? categories : [];
+        return [
+            { value: '', label: 'All Categories' },
+            ...safeCategories.map(cat => ({ 
+                value: cat?._id || cat?.id || '', 
+                label: cat?.name || 'Unnamed Category' 
+            }))
+        ];
+    }, [categories]);
 
     // Memoize navigation handlers
     const handleNavigateToCreate = useCallback(() => {
