@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaStar } from 'react-icons/fa';
-import { BsCartPlus } from 'react-icons/bs';
 import api from '../../api/axiosConfig';
+import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../hooks/useAuth';
 import { toast } from 'react-hot-toast';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay } from 'swiper/modules';
+import BestsellerCard from './BestsellerCard';
 
 // Import Swiper styles
 import 'swiper/css';
@@ -15,30 +15,49 @@ import 'swiper/css/pagination';
 
 const BestsellerSection = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { addToCart } = useCart();
+  const { isAuthenticated } = useAuth();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    fetchBestsellers();
-  }, []);
+  // Memoize fetchBestsellers to prevent unnecessary recreations
+  const fetchBestsellers = useCallback(async (signal) => {
+    setLoading(true);
+    setError(null);
 
-  const fetchBestsellers = async () => {
     try {
-      const response = await api.get('/products/bestsellers/list?limit=12');
+      const response = await api.get('/products/bestsellers/list?limit=12', { signal });
       setProducts(response.data.products || []);
-    } catch (error) {
-      console.error('Error fetching bestsellers:', error);
-      toast.error('Failed to load bestsellers');
+    } catch (err) {
+      // Don't set error if request was cancelled
+      if (err.name !== 'CanceledError' && err.name !== 'AbortError') {
+        console.error('Error fetching bestsellers:', err);
+        const errorMessage = err.response?.data?.message || err.message || 'Failed to load bestsellers';
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleAddToCart = async (product, e) => {
+  // Fetch bestsellers on mount
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    fetchBestsellers(abortController.signal);
+
+    // Cleanup: abort pending request on unmount
+    return () => {
+      abortController.abort();
+    };
+  }, [fetchBestsellers]);
+
+  // Memoize handleAddToCart to prevent unnecessary recreations
+  const handleAddToCart = useCallback(async (product, e) => {
     e.stopPropagation();
-    
-    if (!user) {
+
+    if (!isAuthenticated) {
       toast.error('Please login to add items to cart');
       navigate('/login');
       return;
@@ -50,21 +69,19 @@ const BestsellerSection = () => {
     }
 
     try {
-      await api.post('/cart/add', {
-        productId: product._id,
-        quantity: 1
-      });
-      toast.success('Added to cart!');
+      await addToCart(product._id, 1);
     } catch (error) {
-      console.error('Error adding to cart:', error);
-      toast.error(error.response?.data?.message || 'Failed to add to cart');
+      // Error already handled in context
     }
+  }, [isAuthenticated, navigate, addToCart]);
+
+  // Retry handler for error state
+  const handleRetry = () => {
+    const abortController = new AbortController();
+    fetchBestsellers(abortController.signal);
   };
 
-  const getDiscount = (price, discountPrice) => {
-    return Math.round(((price - discountPrice) / price) * 100);
-  };
-
+  // Loading state
   if (loading) {
     return (
       <section className="py-8 sm:py-12 bg-white" id="bestsellers-section">
@@ -94,10 +111,48 @@ const BestsellerSection = () => {
     );
   }
 
-  if (!products || products.length === 0) {
-    return null; // Don't show section if no bestsellers
+  // Error state
+  if (error) {
+    return (
+      <section className="py-8 sm:py-12 bg-white" id="bestsellers-section">
+        <div className="max-w-[100rem] mx-auto px-4">
+          <div className="mb-6 sm:mb-8">
+            <div className="flex items-center gap-2 mb-2">
+              <h2 className="text-2xl sm:text-3xl font-bold text-[#5c2d16]">
+                Our Bestsellers
+              </h2>
+            </div>
+            <p className="text-sm sm:text-base text-gray-600">Most loved products by our customers</p>
+          </div>
+          <div className="text-center py-12 sm:py-16 bg-red-50 border-2 border-red-200 rounded-lg px-4">
+            <svg className="mx-auto h-16 sm:h-20 w-16 sm:w-20 text-red-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <h3 className="text-lg sm:text-xl font-bold text-red-700 mb-2">Failed to Load Bestsellers</h3>
+            <p className="text-sm sm:text-base text-red-600 mb-6 max-w-md mx-auto">
+              {error}
+            </p>
+            <button
+              onClick={handleRetry}
+              className="bg-[#5c2d16] text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg hover:bg-gray-800 transition font-semibold text-sm sm:text-base inline-flex items-center gap-2"
+            >
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Retry
+            </button>
+          </div>
+        </div>
+      </section>
+    );
   }
 
+  // Empty state - don't show section if no bestsellers
+  if (!products || products.length === 0) {
+    return null;
+  }
+
+  // Main content
   return (
     <section className="py-8 sm:py-12 bg-white" id="bestsellers-section">
       <div className="max-w-[100rem] mx-auto px-4">
@@ -148,121 +203,14 @@ const BestsellerSection = () => {
             }}
             className="pb-12"
           >
-            {products.map((product) => {
-              const displayPrice = product.discountPrice || product.price;
-              const hasDiscount = product.discountPrice && product.discountPrice < product.price;
-
-              return (
-                <SwiperSlide key={product._id}>
-                  <div
-                    className="group bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition cursor-pointer flex flex-col"
-                    style={{ height: '100%', minHeight: '400px' }}
-                    onClick={() => navigate(`/products/${product.slug || product._id}`)}
-                  >
-                    {/* Product Image */}
-                    <div className="relative overflow-hidden h-48 sm:h-64 bg-gray-50">
-                      {/* First Image */}
-                      <img
-                        src={product.images?.[0] || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400"%3E%3Crect width="400" height="400" fill="%23f3f4f6"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="24" fill="%239ca3af"%3ENo Image%3C/text%3E%3C/svg%3E'}
-                        alt={product.name}
-                        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${product.images?.[1] ? 'group-hover:opacity-0' : 'group-hover:scale-105'}`}
-                        onError={(e) => {
-                          e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400"%3E%3Crect width="400" height="400" fill="%23f3f4f6"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="24" fill="%239ca3af"%3ENo Image%3C/text%3E%3C/svg%3E';
-                        }}
-                      />
-                      
-                      {/* Second Image (shown on hover) */}
-                      {product.images?.[1] && (
-                        <img
-                          src={product.images[1]}
-                          alt={product.name}
-                          className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                          }}
-                        />
-                      )}
-                      
-                      {/* Badges - Top Left */}
-                      <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex flex-col gap-1 sm:gap-2 z-10">                        
-                        {hasDiscount && (
-                          <div className="bg-[#5c2d16] text-white text-xs font-bold px-1.5 py-0.5 sm:px-2 sm:py-1 rounded">
-                            {getDiscount(product.price, product.discountPrice)}% OFF
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Out of Stock Overlay */}
-                      {product.stock <= 0 && (
-                        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
-                          <span className="bg-white text-[#5c2d16] px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-bold text-xs sm:text-sm">
-                            Out of Stock
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Product Info */}
-                    <div className="p-3 sm:p-5 flex-1 flex flex-col">
-                      {/* Product Name */}
-                      <h3 className="font-semibold text-[#5c2d16] mb-2 line-clamp-2 text-sm sm:text-base min-h-[2.5rem] sm:min-h-[3rem] group-hover:text-gray-600 transition">
-                        {product.name}
-                      </h3>
-
-                      {/* Rating */}
-                      {product.averageRating > 0 && (
-                        <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-3">
-                          <div className="flex items-center gap-0.5 sm:gap-1">
-                            <FaStar className="text-yellow-400 text-xs sm:text-sm" />
-                            <span className="text-xs sm:text-sm font-medium text-[#5c2d16]">{product.averageRating.toFixed(1)}</span>
-                          </div>
-                          <span className="text-xs text-gray-500">({product.numReviews || 0})</span>
-                        </div>
-                      )}
-
-                      {/* Total Sold Badge */}
-                      {product.totalSold && (
-                        <div className="mb-2 sm:mb-3">
-                          <span className="text-xs bg-orange-50 text-orange-600 px-2 py-1 rounded-full font-medium">
-                            {product.totalSold}+ sold
-                          </span>
-                        </div>
-                      )}
-
-                      <div className="mt-auto">
-                        {/* Price */}
-                        <div className="flex items-baseline gap-1 sm:gap-2 mb-2 sm:mb-3">
-                          <span className="text-lg sm:text-2xl font-bold text-[#5c2d16]">
-                            ₹{displayPrice}
-                          </span>
-                          {hasDiscount && (
-                            <span className="text-xs sm:text-sm text-gray-400 line-through">
-                              ₹{product.price}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Add to Cart Button */}
-                        <button 
-                          className="w-full bg-[#5c2d16] text-white py-2 sm:py-3 rounded-lg hover:bg-gray-800 transition font-medium disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-1 sm:gap-2 text-sm sm:text-base"
-                          disabled={product.stock <= 0}
-                          onClick={(e) => { 
-                            e.stopPropagation(); 
-                            if (product.stock > 0) {
-                              handleAddToCart(product, e);
-                            }
-                          }}
-                        >
-                          <BsCartPlus className="text-base sm:text-lg" />
-                          <span className="hidden sm:inline">{product.stock <= 0 ? 'Out of Stock' : 'Add to Cart'}</span>
-                          <span className="sm:hidden">{product.stock <= 0 ? 'Out' : 'Add'}</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </SwiperSlide>
-              );
-            })}
+            {products.map((product) => (
+              <SwiperSlide key={product._id}>
+                <BestsellerCard
+                  product={product}
+                  onAddToCart={handleAddToCart}
+                />
+              </SwiperSlide>
+            ))}
           </Swiper>
 
           {/* Custom Navigation Buttons - Hidden on mobile, visible on md+ */}
@@ -282,7 +230,8 @@ const BestsellerSection = () => {
         </div>
       </div>
 
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .bestseller-slider .swiper-slide {
           height: auto;
           display: flex;
@@ -329,4 +278,3 @@ const BestsellerSection = () => {
 };
 
 export default BestsellerSection;
-

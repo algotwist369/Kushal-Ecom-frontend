@@ -416,7 +416,7 @@ const ProductDetails = () => {
         try {
             setLoading(true);
             const signal = abortControllerRef.current?.signal;
-            
+
             // Fetch main product - this is critical, show error if it fails
             const response = await api.get(`/products/${productId}`, { signal });
 
@@ -425,7 +425,7 @@ const ProductDetails = () => {
             const productData = response.data;
             setProduct(productData);
             setMainImage(productData.images?.[0] || "");
-            
+
             // Set loading to false after main product loads successfully
             if (isMountedRef.current) {
                 setLoading(false);
@@ -442,7 +442,7 @@ const ProductDetails = () => {
                     }, { signal }).then(res => {
                         if (!isMountedRef.current || signal?.aborted) return;
                         setRelatedProducts(res.data.products?.filter(p => p._id !== productData._id) || []);
-                    }).catch(() => { 
+                    }).catch(() => {
                         // Silently fail for related products
                     })
                 );
@@ -499,7 +499,7 @@ const ProductDetails = () => {
 
     const fetchActiveCoupons = useCallback(async () => {
         if (!isMountedRef.current) return;
-        
+
         try {
             const signal = abortControllerRef.current?.signal;
             const response = await api.get('/coupons/active', { signal });
@@ -518,11 +518,11 @@ const ProductDetails = () => {
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
-        
+
         // Create new abort controller
         abortControllerRef.current = new AbortController();
         fetchedProductsRef.current.clear();
-        
+
         fetchProductDetails();
         fetchActiveCoupons();
         window.scrollTo(0, 0);
@@ -564,10 +564,10 @@ const ProductDetails = () => {
         const form = e.target;
         const phoneInput = form.querySelector('input[type="tel"]');
         const rawPhone = phoneInput ? phoneInput.value : phoneNumber;
-        
+
         // Clean and validate phone number
         const currentPhone = String(rawPhone || '').replace(/\D/g, '').trim();
-        
+
         // Check if phone number is empty
         if (!currentPhone || currentPhone.length === 0) {
             setCouponError("Please enter your phone number");
@@ -582,13 +582,13 @@ const ProductDetails = () => {
             setPhoneValidation({ isValid: false, message: 'Phone number must be 10 digits' });
             return;
         }
-        
+
         if (!phoneRegex.test(currentPhone)) {
             setCouponError("Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9");
             setPhoneValidation({ isValid: false, message: 'Phone number must start with 6, 7, 8, or 9' });
             return;
         }
-        
+
         // Update phone number state to match what we're sending
         setPhoneNumber(currentPhone);
         setPhoneValidation({ isValid: true, message: 'Valid phone number' });
@@ -2039,22 +2039,35 @@ const ProductDetails = () => {
                     {relatedProducts.length > 0 && (
                         <div>
                             <h2 className="text-2xl font-bold text-[#5c2d16] mb-6">You May Also Like</h2>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
                                 {relatedProducts.map((item) => (
                                     <div
                                         key={item._id}
                                         onClick={() => navigate(`/products/${item.slug || item._id}`)}
-                                        className="border border-gray-200 rounded-lg cursor-pointer hover:shadow-lg transition"
+                                        className="group bg-white border border-gray-200 rounded-lg cursor-pointer hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col"
                                     >
-                                        <div className="h-48 flex items-center justify-center bg-gray-50 rounded-t-lg">
-                                            <LazyImage src={item.images?.[0]} alt={item.name} className="max-h-full max-w-full object-contain p-4" />
+                                        {/* Image Container - Fixed aspect ratio */}
+                                        <div className="relative w-full aspect-square overflow-hidden">
+                                            <LazyImage
+                                                src={item.images?.[0]}
+                                                alt={item.name}
+                                                className="absolute inset-0 w-full h-full object-contain p-2 sm:p-4 group-hover:scale-105 transition-transform duration-300"
+                                            />
                                         </div>
-                                        <div className="p-4">
-                                            <h3 className="font-medium text-[#5c2d16] mb-2 line-clamp-2 text-sm">{item.name}</h3>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-bold text-[#5c2d16]">₹{item.discountPrice || item.price}</span>
+
+                                        {/* Product Info */}
+                                        <div className="p-3 sm:p-4 flex-1 flex flex-col">
+                                            <h3 className="font-medium text-[#5c2d16] mb-2 line-clamp-2 text-xs sm:text-sm min-h-[2rem] sm:min-h-[2.5rem] group-hover:text-gray-700 transition">
+                                                {item.name}
+                                            </h3>
+                                            <div className="flex items-center gap-2 mt-auto">
+                                                <span className="font-bold text-[#5c2d16] text-sm sm:text-base">
+                                                    ₹{item.discountPrice || item.price}
+                                                </span>
                                                 {item.discountPrice && item.discountPrice < item.price && (
-                                                    <span className="text-sm text-gray-400 line-through">₹{item.price}</span>
+                                                    <span className="text-xs sm:text-sm text-gray-400 line-through">
+                                                        ₹{item.price}
+                                                    </span>
                                                 )}
                                             </div>
                                         </div>
