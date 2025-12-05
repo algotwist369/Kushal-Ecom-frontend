@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { BsChevronLeft } from "react-icons/bs";
 import { loginUser } from "../../services/authService";
@@ -12,8 +12,9 @@ const LoginPage = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
-    
+
     const navigate = useNavigate();
+    const location = useLocation(); // Add useLocation
     const { login } = useAuth();
 
     useEffect(() => {
@@ -27,10 +28,13 @@ const LoginPage = () => {
 
         try {
             const result = await loginUser({ email, password });
-            
+
             if (result.success) {
                 login(result.data);
-                navigate('/'); // Redirect to home page after successful login
+
+                // Check if there's a return url
+                const from = location.state?.from || '/';
+                navigate(from);
             } else {
                 setError(result.message);
             }
@@ -45,7 +49,7 @@ const LoginPage = () => {
         <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
             <div className="max-w-md w-full">
                 {/* Back Button */}
-                <button 
+                <button
                     onClick={() => navigate('/')}
                     className="flex items-center gap-2 text-gray-600 hover:text-[#5c2d16] mb-6 transition group"
                 >
@@ -60,13 +64,13 @@ const LoginPage = () => {
                         </h2>
                         <p className="text-gray-600">Login to your account</p>
                     </div>
-                    
+
                     {error && (
                         <div className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">
                             {error}
                         </div>
                     )}
-                    
+
                     <form onSubmit={handleLogin} className="space-y-6">
                         <div>
                             <label className="block text-sm font-medium text-[#5c2d16] mb-2">Email</label>
@@ -108,7 +112,7 @@ const LoginPage = () => {
                             {loading ? 'Logging in...' : 'Login'}
                         </button>
                     </form>
-                    
+
                     {/* Divider */}
                     <div className="relative my-6">
                         <div className="absolute inset-0 flex items-center">
@@ -118,10 +122,10 @@ const LoginPage = () => {
                             <span className="px-3 bg-white text-gray-500">Or continue with</span>
                         </div>
                     </div>
-                    
+
                     {/* Google Login */}
                     <GoogleLoginButton />
-                    
+
                     <p className="mt-6 text-gray-600 text-center text-sm">
                         Don't have an account?{" "}
                         <Link to="/signup" className="text-[#5c2d16] hover:text-gray-600 font-semibold">

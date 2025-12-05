@@ -623,11 +623,7 @@ const ProductDetails = () => {
     }, [activeCoupons, phoneNumber, validatePhoneNumber]);
 
     const handleAddToCart = useCallback(async () => {
-        if (!isAuthenticated) {
-            safeToast.error("Please login to add items to cart");
-            navigate("/login");
-            return;
-        }
+
 
         if (product.stock <= 0) {
             safeToast.error("Out of stock");

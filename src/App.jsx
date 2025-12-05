@@ -108,7 +108,7 @@ const App = () => {
         }}
       />
       <Navbar />
-      
+
       <div className="min-h-screen bg-gray-50">
         <Routes>
           <Route path="/" element={<AdminRedirect><HomePage /></AdminRedirect>} />
@@ -130,7 +130,7 @@ const App = () => {
           <Route path="/contact" element={<AdminRedirect><ContactPage /></AdminRedirect>} />
 
           {/* Cart & Checkout - Require Authentication (No Admin Access) */}
-          <Route path="/cart" element={<ProtectedRoute><AdminRedirect><Cart /></AdminRedirect></ProtectedRoute>} />
+          <Route path="/cart" element={<AdminRedirect><Cart /></AdminRedirect>} />
           <Route path="/checkout" element={<ProtectedRoute><AdminRedirect><Checkout /></AdminRedirect></ProtectedRoute>} />
           <Route path="/order-confirmation" element={<ProtectedRoute><AdminRedirect><OrderConfirmation /></AdminRedirect></ProtectedRoute>} />
           <Route path="/place-order" element={<ProtectedRoute><AdminRedirect><PlaceOrderPage /></AdminRedirect></ProtectedRoute>} />

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { BsChevronLeft } from "react-icons/bs";
 import { registerUser } from "../../services/authService";
@@ -16,38 +16,43 @@ const SignupPage = () => {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
-    
 
-      useEffect(() => {
+
+    useEffect(() => {
         window.scrollTo(0, 0);
-    }, []); 
+    }, []);
 
 
     const navigate = useNavigate();
+    const location = useLocation(); // Add useLocation
     const { login } = useAuth();
 
     const handleSignup = async (e) => {
         e.preventDefault();
         setError("");
-        
+
         if (password !== confirmPassword) {
             setError("Passwords do not match");
             return;
         }
-        
+
         if (password.length < 6) {
             setError("Password must be at least 6 characters long");
             return;
         }
-        
+
         setLoading(true);
 
         try {
             const result = await registerUser({ fullname, email, phone, password });
-            
+
             if (result.success) {
                 login(result.data);
-                navigate('/'); // Redirect to home page after successful signup
+                login(result.data);
+
+                // Check if there's a return url
+                const from = location.state?.from || '/';
+                navigate(from);
             } else {
                 setError(result.message);
             }
@@ -62,7 +67,7 @@ const SignupPage = () => {
         <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
             <div className="max-w-2xl w-full">
                 {/* Back Button */}
-                <button 
+                <button
                     onClick={() => navigate('/')}
                     className="flex items-center gap-2 text-gray-600 hover:text-[#5c2d16] mb-6 transition group"
                 >
@@ -77,13 +82,13 @@ const SignupPage = () => {
                         </h2>
                         <p className="text-gray-600">Join us and start your wellness journey</p>
                     </div>
-                    
+
                     {error && (
                         <div className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">
                             {error}
                         </div>
                     )}
-                    
+
                     <form
                         onSubmit={handleSignup}
                         className="space-y-5"
@@ -181,7 +186,7 @@ const SignupPage = () => {
                             {loading ? 'Creating Account...' : 'Create Account'}
                         </button>
                     </form>
-                    
+
                     {/* Divider */}
                     <div className="relative my-6">
                         <div className="absolute inset-0 flex items-center">
@@ -191,7 +196,7 @@ const SignupPage = () => {
                             <span className="px-3 bg-white text-gray-500">Or continue with</span>
                         </div>
                     </div>
-                    
+
                     {/* Google Login */}
                     <GoogleLoginButton />
 

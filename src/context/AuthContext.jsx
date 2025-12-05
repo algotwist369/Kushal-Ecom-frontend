@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect } from 'react';
 import { getCurrentUser, isAuthenticated, logoutUser } from '../services/authService';
+import { addToCart } from '../services/cartService';
 
 export const AuthContext = createContext();
 
@@ -25,8 +26,31 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
     }, []);
 
-    const login = (userData) => {
+    const login = async (userData) => {
         setUser(userData);
+
+        // Merge guest cart with user cart
+        try {
+            const guestCart = JSON.parse(localStorage.getItem('guestCart'));
+            if (guestCart && guestCart.items && guestCart.items.length > 0) {
+                // We need to merge items sequentially to ensure order and avoid race conditions
+                // In a production app, we should have a bulk add endpoint
+                // iterating here for simplicity as per existing API
+
+                // Note: The CartContext will also re-fetch the cart when user changes
+                // So we just need to push the data here.
+
+                for (const item of guestCart.items) {
+                    await addToCart(item.product._id, item.quantity, item.packInfo);
+                }
+
+                // Clear guest cart after successful merge
+                localStorage.removeItem('guestCart');
+            }
+        } catch (error) {
+            console.error('Error merging cart:', error);
+            // Non-blocking error - login should still succeed
+        }
     };
 
     const logout = async () => {
@@ -55,4 +79,5 @@ export const AuthProvider = ({ children }) => {
         </AuthContext.Provider>
     );
 };
+
 

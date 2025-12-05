@@ -133,11 +133,11 @@ const ProductDetails = () => {
             if (response.data.category?._id) {
                 fetchRelatedProducts(response.data.category._id);
             }
-            
+
             if (response.data.bundleWith && response.data.bundleWith.length > 0) {
                 fetchBundleProducts(response.data.bundleWith);
             }
-            
+
             if (response.data.freeProducts && response.data.freeProducts.length > 0) {
                 fetchFreeProducts(response.data.freeProducts);
             }
@@ -188,11 +188,7 @@ const ProductDetails = () => {
     };
 
     const handleAddToCart = async () => {
-        if (!isAuthenticated) {
-            toast.error("Please login to add items to cart");
-            navigate("/login");
-            return;
-        }
+
 
         if (product.stock <= 0) {
             toast.error("Out of stock");
@@ -393,9 +389,8 @@ const ProductDetails = () => {
                                         <button
                                             key={idx}
                                             onClick={() => { setMainImage(img); setSelectedImageIndex(idx); }}
-                                            className={`border-2 rounded overflow-hidden aspect-square ${
-                                                selectedImageIndex === idx ? 'border-[#5c2d16]' : 'border-gray-200 hover:border-gray-400'
-                                            }`}
+                                            className={`border-2 rounded overflow-hidden aspect-square ${selectedImageIndex === idx ? 'border-[#5c2d16]' : 'border-gray-200 hover:border-gray-400'
+                                                }`}
                                         >
                                             <img src={img} alt="" className="w-full h-full object-cover" />
                                         </button>
@@ -407,7 +402,7 @@ const ProductDetails = () => {
                         {/* Product Info */}
                         <div>
                             <h1 className="text-3xl font-bold text-[#5c2d16] mb-3">{product.name}</h1>
-                            
+
                             {/* Rating */}
                             {product.averageRating > 0 && (
                                 <div className="flex items-center gap-2 mb-4">
@@ -455,9 +450,8 @@ const ProductDetails = () => {
                                     <div className="grid grid-cols-3 gap-3">
                                         <button
                                             onClick={() => setSelectedPack(null)}
-                                            className={`border-2 rounded-lg p-3 text-left ${
-                                                !selectedPack ? 'border-[#5c2d16] bg-gray-50' : 'border-gray-200 hover:border-gray-400'
-                                            }`}
+                                            className={`border-2 rounded-lg p-3 text-left ${!selectedPack ? 'border-[#5c2d16] bg-gray-50' : 'border-gray-200 hover:border-gray-400'
+                                                }`}
                                         >
                                             <p className="font-medium text-sm">Single</p>
                                             <p className="text-lg font-bold">₹{product.discountPrice || product.price}</p>
@@ -466,9 +460,8 @@ const ProductDetails = () => {
                                             <button
                                                 key={idx}
                                                 onClick={() => setSelectedPack(pack)}
-                                                className={`relative border-2 rounded-lg p-3 text-left ${
-                                                    selectedPack === pack ? 'border-[#5c2d16] bg-gray-50' : 'border-gray-200 hover:border-gray-400'
-                                                }`}
+                                                className={`relative border-2 rounded-lg p-3 text-left ${selectedPack === pack ? 'border-[#5c2d16] bg-gray-50' : 'border-gray-200 hover:border-gray-400'
+                                                    }`}
                                             >
                                                 {pack.savingsPercent > 0 && (
                                                     <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs px-2 py-0.5 rounded-full font-bold">
@@ -571,97 +564,93 @@ const ProductDetails = () => {
 
                     {/* Bundles & Free Products */}
                     {((product.bundleWith && product.bundleWith.length > 0 && bundleProducts.length > 0) ||
-                      (product.freeProducts && product.freeProducts.length > 0 && freeProductsData.length > 0)) && (
-                        <div className="mb-12">
-                            {/* Bundle Products */}
-                            {product.bundleWith && product.bundleWith.length > 0 && bundleProducts.length > 0 && (
-                                <div className="mb-8">
-                                    <h2 className="text-2xl font-bold text-[#5c2d16] mb-6">Frequently Bought Together</h2>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {product.bundleWith.map((bundle, idx) => {
-                                            const bundleProduct = bundleProducts.find(p => p._id === bundle.product || p._id === bundle.product?._id);
-                                            if (!bundleProduct) return null;
+                        (product.freeProducts && product.freeProducts.length > 0 && freeProductsData.length > 0)) && (
+                            <div className="mb-12">
+                                {/* Bundle Products */}
+                                {product.bundleWith && product.bundleWith.length > 0 && bundleProducts.length > 0 && (
+                                    <div className="mb-8">
+                                        <h2 className="text-2xl font-bold text-[#5c2d16] mb-6">Frequently Bought Together</h2>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            {product.bundleWith.map((bundle, idx) => {
+                                                const bundleProduct = bundleProducts.find(p => p._id === bundle.product || p._id === bundle.product?._id);
+                                                if (!bundleProduct) return null;
 
-                                            return (
-                                                <div key={idx} className="border border-gray-200 rounded-lg p-6 hover:shadow-lg transition">
-                                                    <div className="flex gap-4 mb-4">
-                                                        <img
-                                                            src={bundleProduct.images?.[0]}
-                                                            alt={bundleProduct.name}
-                                                            className="w-24 h-24 object-cover rounded"
-                                                        />
-                                                        <div className="flex-1">
-                                                            <h3 className="font-semibold text-[#5c2d16] mb-2 line-clamp-2">{bundleProduct.name}</h3>
-                                                            <div className="flex items-baseline gap-2">
-                                                                <span className="text-2xl font-bold text-[#5c2d16]">₹{bundle.bundlePrice}</span>
-                                                                {bundle.savingsAmount > 0 && (
-                                                                    <span className="text-sm text-green-600 font-medium">Save ₹{bundle.savingsAmount}</span>
-                                                                )}
+                                                return (
+                                                    <div key={idx} className="border border-gray-200 rounded-lg p-6 hover:shadow-lg transition">
+                                                        <div className="flex gap-4 mb-4">
+                                                            <img
+                                                                src={bundleProduct.images?.[0]}
+                                                                alt={bundleProduct.name}
+                                                                className="w-24 h-24 object-cover rounded"
+                                                            />
+                                                            <div className="flex-1">
+                                                                <h3 className="font-semibold text-[#5c2d16] mb-2 line-clamp-2">{bundleProduct.name}</h3>
+                                                                <div className="flex items-baseline gap-2">
+                                                                    <span className="text-2xl font-bold text-[#5c2d16]">₹{bundle.bundlePrice}</span>
+                                                                    {bundle.savingsAmount > 0 && (
+                                                                        <span className="text-sm text-green-600 font-medium">Save ₹{bundle.savingsAmount}</span>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </div>
+                                                        <button
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+
+                                                                if (product.stock <= 0 || bundleProduct.stock <= 0) {
+                                                                    toast.error("Out of stock");
+                                                                    return;
+                                                                }
+                                                                try {
+                                                                    await addToCart(product._id, 1);
+                                                                    await addToCart(bundleProduct._id, 1);
+                                                                    toast.success("Bundle added to cart");
+                                                                } catch (error) {
+                                                                    // Handled in context
+                                                                }
+                                                            }}
+                                                            className="w-full bg-[#5c2d16] hover:bg-gray-800 text-white py-3 rounded-lg font-semibold transition"
+                                                        >
+                                                            Add Bundle to Cart
+                                                        </button>
                                                     </div>
-                                                    <button
-                                                        onClick={async (e) => {
-                                                            e.stopPropagation();
-                                                            if (!isAuthenticated) {
-                                                                toast.error("Please login");
-                                                                navigate("/login");
-                                                                return;
-                                                            }
-                                                            if (product.stock <= 0 || bundleProduct.stock <= 0) {
-                                                                toast.error("Out of stock");
-                                                                return;
-                                                            }
-                                                            try {
-                                                                await addToCart(product._id, 1);
-                                                                await addToCart(bundleProduct._id, 1);
-                                                                toast.success("Bundle added to cart");
-                                                            } catch (error) {
-                                                                // Handled in context
-                                                            }
-                                                        }}
-                                                        className="w-full bg-[#5c2d16] hover:bg-gray-800 text-white py-3 rounded-lg font-semibold transition"
-                                                    >
-                                                        Add Bundle to Cart
-                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Free Products */}
+                                {product.freeProducts && product.freeProducts.length > 0 && freeProductsData.length > 0 && (
+                                    <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+                                        <h2 className="text-xl font-bold text-[#5c2d16] mb-4">Special Offer</h2>
+                                        {product.freeProducts.map((free, idx) => {
+                                            const freeProduct = freeProductsData.find(p => p._id === free.product || p._id === free.product?._id);
+                                            if (!freeProduct) return null;
+
+                                            return (
+                                                <div key={idx} className="bg-white rounded-lg p-4 mb-4">
+                                                    <div className="flex gap-4">
+                                                        <img
+                                                            src={freeProduct.images?.[0]}
+                                                            alt={freeProduct.name}
+                                                            className="w-20 h-20 object-cover rounded"
+                                                        />
+                                                        <div className="flex-1">
+                                                            <p className="font-semibold text-[#5c2d16] mb-2">{freeProduct.name}</p>
+                                                            <p className="text-sm text-green-700 font-medium">
+                                                                Buy {free.minQuantity} → Get {free.quantity} Free
+                                                            </p>
+                                                            <p className="text-sm text-gray-500 line-through">Worth ₹{freeProduct.price}</p>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
-                                </div>
-                            )}
-
-                            {/* Free Products */}
-                            {product.freeProducts && product.freeProducts.length > 0 && freeProductsData.length > 0 && (
-                                <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-                                    <h2 className="text-xl font-bold text-[#5c2d16] mb-4">Special Offer</h2>
-                                    {product.freeProducts.map((free, idx) => {
-                                        const freeProduct = freeProductsData.find(p => p._id === free.product || p._id === free.product?._id);
-                                        if (!freeProduct) return null;
-
-                                        return (
-                                            <div key={idx} className="bg-white rounded-lg p-4 mb-4">
-                                                <div className="flex gap-4">
-                                                    <img
-                                                        src={freeProduct.images?.[0]}
-                                                        alt={freeProduct.name}
-                                                        className="w-20 h-20 object-cover rounded"
-                                                    />
-                                                    <div className="flex-1">
-                                                        <p className="font-semibold text-[#5c2d16] mb-2">{freeProduct.name}</p>
-                                                        <p className="text-sm text-green-700 font-medium">
-                                                            Buy {free.minQuantity} → Get {free.quantity} Free
-                                                        </p>
-                                                        <p className="text-sm text-gray-500 line-through">Worth ₹{freeProduct.price}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    )}
+                                )}
+                            </div>
+                        )}
 
                     {/* Tabs */}
                     <div className="border-t mb-12">
@@ -670,11 +659,10 @@ const ProductDetails = () => {
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
-                                    className={`py-4 font-medium text-sm whitespace-nowrap border-b-2 transition ${
-                                        activeTab === tab.id
-                                            ? 'border-[#5c2d16] text-[#5c2d16]'
-                                            : 'border-transparent text-gray-500 hover:text-[#5c2d16]'
-                                    }`}
+                                    className={`py-4 font-medium text-sm whitespace-nowrap border-b-2 transition ${activeTab === tab.id
+                                        ? 'border-[#5c2d16] text-[#5c2d16]'
+                                        : 'border-transparent text-gray-500 hover:text-[#5c2d16]'
+                                        }`}
                                 >
                                     {tab.label}
                                 </button>
@@ -875,55 +863,55 @@ const ProductDetails = () => {
 
                                     {/* Suitability */}
                                     {((product.ageGroup && product.ageGroup.length > 0) ||
-                                      (product.gender && product.gender.length > 0) ||
-                                      (product.season && product.season.length > 0) ||
-                                      (product.timeOfDay && product.timeOfDay.length > 0)) && (
-                                        <div className="mt-8 pt-8 border-t">
-                                            <h4 className="font-bold mb-4">Suitable For</h4>
-                                            <div className="grid grid-cols-4 gap-4">
-                                                {product.ageGroup && product.ageGroup.length > 0 && (
-                                                    <div>
-                                                        <p className="text-xs text-gray-500 mb-2">Age Group</p>
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {product.ageGroup.map((item, i) => (
-                                                                <span key={i} className="bg-gray-100 px-2 py-1 rounded text-xs">{item}</span>
-                                                            ))}
+                                        (product.gender && product.gender.length > 0) ||
+                                        (product.season && product.season.length > 0) ||
+                                        (product.timeOfDay && product.timeOfDay.length > 0)) && (
+                                            <div className="mt-8 pt-8 border-t">
+                                                <h4 className="font-bold mb-4">Suitable For</h4>
+                                                <div className="grid grid-cols-4 gap-4">
+                                                    {product.ageGroup && product.ageGroup.length > 0 && (
+                                                        <div>
+                                                            <p className="text-xs text-gray-500 mb-2">Age Group</p>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {product.ageGroup.map((item, i) => (
+                                                                    <span key={i} className="bg-gray-100 px-2 py-1 rounded text-xs">{item}</span>
+                                                                ))}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                )}
-                                                {product.gender && product.gender.length > 0 && (
-                                                    <div>
-                                                        <p className="text-xs text-gray-500 mb-2">Gender</p>
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {product.gender.map((item, i) => (
-                                                                <span key={i} className="bg-gray-100 px-2 py-1 rounded text-xs">{item}</span>
-                                                            ))}
+                                                    )}
+                                                    {product.gender && product.gender.length > 0 && (
+                                                        <div>
+                                                            <p className="text-xs text-gray-500 mb-2">Gender</p>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {product.gender.map((item, i) => (
+                                                                    <span key={i} className="bg-gray-100 px-2 py-1 rounded text-xs">{item}</span>
+                                                                ))}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                )}
-                                                {product.season && product.season.length > 0 && (
-                                                    <div>
-                                                        <p className="text-xs text-gray-500 mb-2">Season</p>
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {product.season.map((item, i) => (
-                                                                <span key={i} className="bg-gray-100 px-2 py-1 rounded text-xs">{item}</span>
-                                                            ))}
+                                                    )}
+                                                    {product.season && product.season.length > 0 && (
+                                                        <div>
+                                                            <p className="text-xs text-gray-500 mb-2">Season</p>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {product.season.map((item, i) => (
+                                                                    <span key={i} className="bg-gray-100 px-2 py-1 rounded text-xs">{item}</span>
+                                                                ))}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                )}
-                                                {product.timeOfDay && product.timeOfDay.length > 0 && (
-                                                    <div>
-                                                        <p className="text-xs text-gray-500 mb-2">Best Time</p>
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {product.timeOfDay.map((item, i) => (
-                                                                <span key={i} className="bg-gray-100 px-2 py-1 rounded text-xs">{item}</span>
-                                                            ))}
+                                                    )}
+                                                    {product.timeOfDay && product.timeOfDay.length > 0 && (
+                                                        <div>
+                                                            <p className="text-xs text-gray-500 mb-2">Best Time</p>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {product.timeOfDay.map((item, i) => (
+                                                                    <span key={i} className="bg-gray-100 px-2 py-1 rounded text-xs">{item}</span>
+                                                                ))}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                )}
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
                                 </div>
                             )}
 
@@ -944,8 +932,8 @@ const ProductDetails = () => {
                                                         <div key={star} className="flex items-center gap-3 mb-2">
                                                             <span className="text-sm w-12">{star} star</span>
                                                             <div className="flex-1 bg-gray-200 h-2 rounded-full">
-                                                                <div 
-                                                                    className="bg-yellow-500 h-full rounded-full" 
+                                                                <div
+                                                                    className="bg-yellow-500 h-full rounded-full"
                                                                     style={{ width: `${product.ratingStats.distributionPercentage[star] || 0}%` }}
                                                                 ></div>
                                                             </div>

@@ -2,28 +2,12 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa";
 
-// Sample JSON data for slider images with links
 const heroData = [
   {
     id: 1,
-    title: "Relax & Rejuvenate",
-    subtitle: "Experience luxury spa treatments",
-    image: "https://oppositehq.com/static/5393bd49ec2b5cbdd1bdefb756cc7e35/7b1eb/0_herounit_kapiva_a00fba4552.jpg",
-    link: "/relax-rejuvenate",
-  },
-  {
-    id: 2,
-    title: "Holistic Wellness",
-    subtitle: "Mind, Body & Soul care",
-    image: "https://oppositehq.com/static/7ea659e627c831366ff9173d34d5837b/13969/3_solution1_kapiva_858d79b4ec.jpg",
-    link: "/services/holistic-wellness",
-  },
-  {
-    id: 3,
-    title: "Luxury Spa Experience",
-    subtitle: "Book your appointment now",
-    image: "https://oppositehq.com/static/00e7a036cb2e0f2b61937dfc90356eb9/13969/20_aloeplus2_kapiva_e065e3887a.jpg",
-    link: "/luxury-spa",
+    large_image: "https://res.cloudinary.com/dywfufrta/image/upload/v1764763788/Omega_3_Capsules_1290_x_630_px_cabcmo.png",
+    mobile_image: "https://res.cloudinary.com/dywfufrta/image/upload/v1764763792/OMEGA_3_552_x_630_px_ypqh1s.png",
+    product_url: "/products/fytage-omega-3-softgel-capsules-i-30-capsules",
   },
 ];
 
@@ -31,7 +15,7 @@ const HeroSection = () => {
   const [current, setCurrent] = useState(0);
   const navigate = useNavigate();
 
-  // Auto slider every 5 seconds
+  // Auto slide
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrent((prev) => (prev === heroData.length - 1 ? 0 : prev + 1));
@@ -41,44 +25,58 @@ const HeroSection = () => {
 
   const nextSlide = () => setCurrent(current === heroData.length - 1 ? 0 : current + 1);
   const prevSlide = () => setCurrent(current === 0 ? heroData.length - 1 : current - 1);
-  const handleClick = (link) => navigate(link);
 
   return (
-    <section className="relative w-full">
-      {/* Hero Slider */}
-      <div className="relative w-full h-[500px] md:h-[600px] overflow-hidden">
+    <section className="relative w-full overflow-hidden">
+      <div className="relative w-full h-[450px] md:h-[600px]">
         {heroData.map((slide, index) => (
           <div
             key={slide.id}
-            className={`absolute top-0 left-0 w-full h-full transition-opacity duration-700 ${index === current ? "opacity-100 z-10" : "opacity-0 z-0"
-              } cursor-pointer`}
-            onClick={() => handleClick(slide.link)}
+            onClick={() => navigate(slide.product_url)}
+            className={`absolute top-0 left-0 w-full h-full transition-opacity duration-700 ease-in-out 
+              ${index === current ? "opacity-100 z-10" : "opacity-0 z-0"} cursor-pointer`}
           >
-            <img src={slide.image} alt={slide.title} className="w-full h-full object-cover" />
-            
+            <picture>
+              {/* Mobile First */}
+              <source media="(max-width: 768px)" srcSet={slide.mobile_image} />
+              <img
+                src={slide.large_image}
+                alt={`Slide-${slide.id}`}
+                loading="lazy"
+                className="w-full h-full object-contain md:object-cover"
+              />
+            </picture>
           </div>
         ))}
 
-        {/* Slider Controls */}
+        {/* Controls */}
         <button
           onClick={prevSlide}
-          className="absolute top-1/2 left-2 md:left-6 transform -translate-y-1/2 bg-white bg-opacity-50 rounded-full p-4 md:p-5 hover:bg-opacity-80 transition z-20"
+          className="absolute top-1/2 left-4 md:left-6 -translate-y-1/2 bg-white/60 hover:bg-white/80 backdrop-blur-sm 
+          rounded-full p-3 md:p-4 shadow-md transition z-20"
         >
-          <FaArrowLeft className="text-gray-800 text-xl md:text-2xl" />
-        </button>
-        <button
-          onClick={nextSlide}
-          className="absolute top-1/2 right-2 md:right-6 transform -translate-y-1/2 bg-white bg-opacity-50 rounded-full p-4 md:p-5 hover:bg-opacity-80 transition z-20"
-        >
-          <FaArrowRight className="text-gray-800 text-xl md:text-2xl" />
+          <FaArrowLeft className="text-gray-800 text-lg md:text-xl" />
         </button>
 
-        {/* Slider Dots */}
-        <div className="absolute bottom-4 w-full flex justify-center space-x-3 z-20">
+        <button
+          onClick={nextSlide}
+          className="absolute top-1/2 right-4 md:right-6 -translate-y-1/2 bg-white/60 hover:bg-white/80 backdrop-blur-sm 
+          rounded-full p-3 md:p-4 shadow-md transition z-20"
+        >
+          <FaArrowRight className="text-gray-800 text-lg md:text-xl" />
+        </button>
+
+        {/* Dots */}
+        <div className="absolute bottom-5 w-full flex justify-center gap-3 z-20">
           {heroData.map((_, idx) => (
-            <button key={idx} onClick={() => setCurrent(idx)} className="focus:outline-none">
-              <span className={`text-xl ${idx === current ? "text-white" : "text-gray-400"}`}>●</span>
-            </button>
+            <span
+              key={idx}
+              onClick={() => setCurrent(idx)}
+              className={`cursor-pointer text-2xl transition 
+                ${idx === current ? "text-white drop-shadow-lg" : "text-gray-400"}`}
+            >
+              ●
+            </span>
           ))}
         </div>
       </div>

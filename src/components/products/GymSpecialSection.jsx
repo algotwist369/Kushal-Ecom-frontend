@@ -86,11 +86,7 @@ const GymSpecialSection = () => {
   const handleAddToCart = useCallback(async (product, e) => {
     e.stopPropagation();
 
-    if (!isAuthenticated) {
-      toast.error('Please login to add items to cart');
-      navigate('/login');
-      return;
-    }
+
 
     if (product.stock <= 0) {
       toast.error('Product is out of stock');

@@ -254,7 +254,7 @@ const ProductDetails = () => {
     const handleAddToCart = async () => {
         if (!isAuthenticated) {
             toast.error("Please login to add items to cart");
-            navigate("/login");
+            navigate("/signup");
             return;
         }
 
@@ -759,7 +759,7 @@ const ProductDetails = () => {
                                         
                                         if (!isAuthenticated) {
                                             toast.error("Please login to add items to cart");
-                                            navigate("/login");
+                                            navigate("/signup");
                                             return;
                                         }
 
@@ -857,7 +857,7 @@ const ProductDetails = () => {
                                         
                                         if (!isAuthenticated) {
                                             toast.error("Please login to add items to cart");
-                                            navigate("/login");
+                                            navigate("/signup");
                                             return;
                                         }
 
