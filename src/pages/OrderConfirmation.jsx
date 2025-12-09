@@ -49,13 +49,18 @@ const OrderConfirmation = () => {
                 };
             }
             
-            console.log('📦 Creating order with payload:', orderPayload);
+            // Only log in development
+            if (import.meta.env.DEV) {
+                console.log('📦 Creating order with payload:', orderPayload);
+            }
 
             // Create order
             const response = await api.post('/orders', orderPayload);
             const order = response.data;
             
-            console.log('✅ Order created successfully:', order._id);
+            if (import.meta.env.DEV) {
+                console.log('✅ Order created successfully:', order._id);
+            }
 
             // If Razorpay, initiate payment
             if (paymentMethod === 'razorpay') {

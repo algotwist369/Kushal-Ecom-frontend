@@ -19,8 +19,16 @@ export const updateCartQuantity = async (productId, quantity) => {
 };
 
 // Remove item from cart
-export const removeFromCart = async (productId) => {
-    const response = await api.delete(`/cart/${productId}`);
+export const removeFromCart = async (productId, isPack = false, packSize = undefined) => {
+    const params = new URLSearchParams();
+    // Always send isPack parameter to clearly distinguish between pack and single item
+    params.append('isPack', isPack ? 'true' : 'false');
+    if (isPack && packSize !== undefined) {
+        params.append('packSize', packSize.toString());
+    }
+    const queryString = params.toString();
+    const url = `/cart/${productId}?${queryString}`;
+    const response = await api.delete(url);
     return response.data;
 };
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { BsX } from 'react-icons/bs';
 import api from '../../api/axiosConfig';
+import { sanitizeHTML } from '../../utils/sanitize';
 
 const PopUpModal = () => {
     const navigate = useNavigate();
@@ -269,7 +270,7 @@ const PopUpModal = () => {
             </div>
 
             {/* Animations */}
-            <style dangerouslySetInnerHTML={{__html: `
+            <style dangerouslySetInnerHTML={{__html: sanitizeHTML(`
                 @keyframes fadeIn {
                     from { opacity: 0; }
                     to { opacity: 1; }
@@ -290,7 +291,7 @@ const PopUpModal = () => {
                 .animate-slideUp {
                     animation: slideUp 0.4s ease-out;
                 }
-            `}} />
+            `)}} />
         </>
     );
 };

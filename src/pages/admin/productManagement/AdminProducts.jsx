@@ -13,6 +13,7 @@ import LoadingSpinner from '../../../components/admin/common/LoadingSpinner';
 import { RiGalleryFill, RiRefreshLine } from 'react-icons/ri';
 import { LuPlus } from 'react-icons/lu';
 import { FaRegEdit, FaTrash } from 'react-icons/fa';
+import { getSocket } from '../../../utils/socket';
 
 
 const AdminProducts = () => {
@@ -189,13 +190,62 @@ const AdminProducts = () => {
         // Fetch products immediately - no delays
         fetchProducts();
 
-        // Cleanup function to abort request on unmount or when dependencies change
+        // Initialize Socket.IO for real-time product updates
+        const socket = getSocket();
+        
+        // Listen for product creation
+        socket.on('product_created', (product) => {
+            console.log('📦 Product created:', product.name);
+            toast.success(`New product added: ${product.name}`, {
+                duration: 3000,
+                icon: '📦'
+            });
+            // Refresh products list
+            fetchProducts();
+        });
+        
+        // Listen for product updates
+        socket.on('product_updated', (product) => {
+            console.log('✏️ Product updated:', product.name);
+            console.log('📦 Updated product data:', product);
+            // Always refresh the products list to ensure we have the latest data with populated categories
+            // This ensures categories are properly displayed after update
+            fetchProducts();
+            toast.success(`Product updated: ${product.name}`, {
+                duration: 2000,
+                icon: '✏️'
+            });
+        });
+        
+        // Listen for product deletion
+        socket.on('product_deleted', (data) => {
+            console.log('🗑️ Product deleted:', data.productName);
+            // Remove product from list immediately
+            setProducts(prev => {
+                const updated = prev.filter(p => p._id !== data.productId);
+                // If current page becomes empty and not on first page, go to previous page
+                if (updated.length === 0 && currentPage > 1) {
+                    setCurrentPage(prevPage => Math.max(1, prevPage - 1));
+                }
+                return updated;
+            });
+            setTotalProducts(prev => Math.max(0, prev - 1));
+            toast.success(`Product deleted: ${data.productName}`, {
+                duration: 3000,
+                icon: '🗑️'
+            });
+        });
+
+        // Cleanup function to abort request and remove socket listeners
         return () => {
             if (abortControllerRef.current) {
                 abortControllerRef.current.abort();
             }
+            socket.off('product_created');
+            socket.off('product_updated');
+            socket.off('product_deleted');
         };
-    }, [fetchProducts, fetchCategories]);
+    }, [fetchProducts, fetchCategories, currentPage]);
 
     // Refresh data when navigating back from edit/create pages
     useEffect(() => {
@@ -368,24 +418,32 @@ const AdminProducts = () => {
                 {/* Header */}
                 <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                        <h1 className="text-4xl font-bold text-[#5c2d16]">Product Management</h1>
+                        <div className="flex items-center gap-3 flex-wrap">
+                            <h1 className="text-4xl font-bold text-[#5c2d16]">Product Management</h1>
+                            {/* Real-time indicator */}
+                            <div className="flex items-center gap-2 px-3 py-1 bg-green-50 rounded-full border border-green-200">
+                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                <span className="text-xs font-medium text-green-700 hidden sm:inline">Live Updates</span>
+                            </div>
+                        </div>
                         <p className="text-gray-600 mt-2">Manage all products ({totalProducts} total)</p>
                     </div>
                     <div className="flex gap-3">
                         <button
                             onClick={handleRefresh}
                             disabled={loading}
-                            className="bg-gray-200 p-2 rounded-lg"
+                            className="bg-gray-200 hover:bg-gray-300 p-2 rounded-lg transition-colors"
                             title="Refresh products"
                         >
                             <RiRefreshLine className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
                         </button>
                         <button
                             onClick={handleNavigateToCreate}
-                            className="bg-gray-200 p-2 rounded-lg flex items-center gap-2"
+                            className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-semibold shadow-md hover:shadow-lg transition-all"
                         >
                             <LuPlus className="w-5 h-5" />
-                            Add Product
+                            <span className="hidden sm:inline">Add Product</span>
+                            <span className="sm:hidden">Add</span>
                         </button>
                     </div>
                 </div>
@@ -526,10 +584,37 @@ const AdminProducts = () => {
                                                         {product.description || 'No description'}
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded">
-                                                        {product.category?.name || 'N/A'}
-                                                    </span>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-wrap gap-1 max-w-xs">
+                                                        {(product.categories && product.categories.length > 0) ? (
+                                                            product.categories.map((cat, idx) => {
+                                                                const catId = cat._id || cat;
+                                                                const catName = cat.name || cat;
+                                                                return (
+                                                                    <span
+                                                                        key={catId}
+                                                                        className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full border border-green-200"
+                                                                        title={catName}
+                                                                    >
+                                                                        {catName}
+                                                                    </span>
+                                                                );
+                                                            })
+                                                        ) : product.category?.name ? (
+                                                            <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full border border-gray-200">
+                                                                {product.category.name}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-400 rounded-full border border-gray-200 italic">
+                                                                N/A
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {(product.categories && product.categories.length > 3) && (
+                                                        <p className="text-xs text-gray-500 mt-1">
+                                                            +{product.categories.length - 3} more
+                                                        </p>
+                                                    )}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     {product.discountPrice && product.discountPrice < product.price ? (

@@ -189,12 +189,35 @@ export const CartProvider = ({ children }) => {
         }
     };
 
-    const removeFromCart = async (productId) => {
+    const removeFromCart = async (productId, isPack = false, packSize = undefined) => {
         try {
             if (!user) {
-                // Guest Logic
+                // Guest Logic - Filter based on productId, isPack, and packSize
                 const currentCart = JSON.parse(localStorage.getItem('guestCart')) || { items: [], totalPrice: 0 };
-                currentCart.items = currentCart.items.filter(item => item.product._id !== productId);
+                const initialLength = currentCart.items.length;
+                
+                currentCart.items = currentCart.items.filter(item => {
+                    // Keep items that don't match the product ID
+                    if (item.product._id !== productId) return true;
+                    
+                    // If removing a pack, only remove pack items with matching packSize
+                    if (isPack) {
+                        if (!item.isPack) return true; // Keep non-pack items
+                        if (packSize !== undefined) {
+                            return item.packInfo?.packSize !== packSize; // Keep packs with different packSize
+                        }
+                        return false; // Remove all packs if packSize not specified
+                    }
+                    
+                    // If removing a single item, only remove non-pack items
+                    return item.isPack; // Keep pack items, remove single items
+                });
+                
+                if (currentCart.items.length === initialLength) {
+                    toast.error('Item not found in cart');
+                    return currentCart;
+                }
+                
                 currentCart.totalPrice = calculateLocalCartTotal(currentCart.items);
                 localStorage.setItem('guestCart', JSON.stringify(currentCart));
                 setCart(currentCart);
@@ -202,7 +225,7 @@ export const CartProvider = ({ children }) => {
                 return currentCart;
             } else {
                 // Auth Logic
-                const data = await removeFromCartAPI(productId);
+                const data = await removeFromCartAPI(productId, isPack, packSize);
                 setCart(data);
                 toast.success('Item removed from cart');
                 return data;

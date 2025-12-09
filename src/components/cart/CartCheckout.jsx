@@ -184,9 +184,12 @@ const CartCheckout = () => {
     const handleProceedToPayment = (e) => {
         e.preventDefault();
         
-        console.log('🚀 Proceed to payment clicked');
-        console.log('Form data:', formData);
-        console.log('Payment method:', paymentMethod);
+        // Only log in development
+        if (import.meta.env.DEV) {
+            console.log('🚀 Proceed to payment clicked');
+            console.log('Form data:', formData);
+            console.log('Payment method:', paymentMethod);
+        }
 
         // Validation
         if (!formData.fullName.trim()) {
@@ -232,7 +235,9 @@ const CartCheckout = () => {
             return;
         }
 
-        console.log('✅ All validations passed, navigating to confirmation...');
+        if (import.meta.env.DEV) {
+            console.log('✅ All validations passed, navigating to confirmation...');
+        }
 
         // Navigate to payment confirmation page
         navigate('/order-confirmation', {

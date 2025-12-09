@@ -200,6 +200,13 @@ const AdminDashboard = () => {
                             color="border-orange-500"
                         />
                         <QuickActionCard
+                            title="Hero Images"
+                            description="Manage homepage slider images"
+                            link="/admin/hero-images"
+                            icon="🖼️"
+                            color="border-indigo-500"
+                        />
+                        <QuickActionCard
                             title="Contact Messages"
                             description="View customer inquiries"
                             link="/admin/contacts"

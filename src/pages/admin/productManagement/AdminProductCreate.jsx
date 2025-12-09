@@ -40,7 +40,8 @@ const initialFormState = {
     price: '',
     discountPrice: '',
     stock: '',
-    category: '',
+    category: '', // Keep for backward compatibility
+    categories: [], // New multiple categories array
     images: [''],
     attributes: [{ key: '', value: '' }],
     isActive: true,
@@ -276,9 +277,10 @@ const AdminProductCreate = () => {
                 }
             }
 
-            if (prev.category && !prev.category.trim()) {
-                toast.error('Please select a valid category.');
-                setError('Please select a valid category.');
+            // Validate categories
+            if (!prev.categories || !Array.isArray(prev.categories) || prev.categories.length === 0) {
+                toast.error('Please select at least one category.');
+                setError('Please select at least one category.');
                 return prev;
             }
 
@@ -301,7 +303,8 @@ const AdminProductCreate = () => {
                 price: Number(prev.price),
                 discountPrice: numericOrUndefined(prev.discountPrice),
                 stock: Number(prev.stock),
-                category: prev.category,
+                category: prev.categories[0] || prev.category, // Keep for backward compatibility
+                categories: prev.categories, // New multiple categories array
                 images: Array.isArray(prev.images) ? prev.images.map((image) => image.trim()).filter(Boolean) : [],
                 attributes,
                 isActive: prev.isActive,
@@ -503,23 +506,85 @@ const AdminProductCreate = () => {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Category <span className="text-red-500">*</span>
+                                Categories <span className="text-red-500">*</span>
+                                <span className="text-xs text-gray-500 ml-2">(Select multiple categories)</span>
                             </label>
-                            <select
-                                name="category"
-                                value={formData.category}
-                                onChange={handleInputChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                required
-                                disabled={loading}
-                            >
-                                <option value="">Select Category</option>
-                                {categoryOptions.map((category) => (
-                                    <option key={category._id} value={category._id}>
-                                        {category.name}
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="border border-gray-300 rounded-lg p-3 min-h-[42px] max-h-48 overflow-y-auto bg-white">
+                                {categoryOptions.length === 0 ? (
+                                    <p className="text-gray-500 text-sm">Loading categories...</p>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {categoryOptions.map((category) => {
+                                            const isSelected = formData.categories.includes(category._id);
+                                            return (
+                                                <label
+                                                    key={category._id}
+                                                    className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) {
+                                                                setFormData(prev => ({
+                                                                    ...prev,
+                                                                    categories: [...prev.categories, category._id],
+                                                                    category: prev.categories.length === 0 ? category._id : prev.category // Keep first for backward compatibility
+                                                                }));
+                                                            } else {
+                                                                setFormData(prev => ({
+                                                                    ...prev,
+                                                                    categories: prev.categories.filter(id => id !== category._id),
+                                                                    category: prev.categories[0] === category._id && prev.categories.length > 1 
+                                                                        ? prev.categories[1] 
+                                                                        : (prev.categories.length === 1 ? '' : prev.category)
+                                                                }));
+                                                            }
+                                                        }}
+                                                        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                                                        disabled={loading}
+                                                    />
+                                                    <span className="text-sm text-gray-700">{category.name}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                            {formData.categories.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                    {formData.categories.map((catId) => {
+                                        const cat = categoryOptions.find(c => c._id === catId);
+                                        return cat ? (
+                                            <span
+                                                key={catId}
+                                                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"
+                                            >
+                                                {cat.name}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setFormData(prev => ({
+                                                            ...prev,
+                                                            categories: prev.categories.filter(id => id !== catId),
+                                                            category: prev.categories[0] === catId && prev.categories.length > 1 
+                                                                ? prev.categories[1] 
+                                                                : (prev.categories.length === 1 ? '' : prev.category)
+                                                        }));
+                                                    }}
+                                                    className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-green-200"
+                                                    disabled={loading}
+                                                >
+                                                    ×
+                                                </button>
+                                            </span>
+                                        ) : null;
+                                    })}
+                                </div>
+                            )}
+                            {formData.categories.length === 0 && (
+                                <p className="mt-1 text-xs text-red-500">At least one category is required</p>
+                            )}
                         </div>
                     </div>
 

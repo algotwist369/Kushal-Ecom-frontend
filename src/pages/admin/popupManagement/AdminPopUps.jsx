@@ -99,7 +99,11 @@ const AdminPopUps = () => {
                                             className="w-full h-full object-cover"
                                             onError={(e) => {
                                                 e.target.style.display = 'none';
-                                                e.target.parentElement.innerHTML = '<div class="flex items-center justify-center h-full text-gray-400 text-6xl">🎁</div>';
+                                                // Use React-safe approach instead of innerHTML
+                                                const placeholder = document.createElement('div');
+                                                placeholder.className = 'flex items-center justify-center h-full text-gray-400 text-6xl';
+                                                placeholder.textContent = '🎁';
+                                                e.target.parentElement.replaceChildren(placeholder);
                                             }}
                                         />
                                     ) : (

@@ -5,6 +5,7 @@ import { useAuth } from './hooks/useAuth'
 import Navbar from './components/common/Navbar'
 import Footer from './components/common/Footer'
 import ProtectedRoute from './components/common/ProtectedRoute'
+import ErrorBoundary from './components/common/ErrorBoundary'
 
 import LoginPage from './pages/authPage/LoginPage'
 import SignupPage from './pages/authPage/SignupPage'
@@ -55,6 +56,10 @@ import AdminPopUps from './pages/admin/popupManagement/AdminPopUps'
 import AdminPopUpCreate from './pages/admin/popupManagement/AdminPopUpCreate'
 import AdminPopUpEdit from './pages/admin/popupManagement/AdminPopUpEdit'
 
+// Hero Image Management
+import AdminHeroImages from './pages/admin/heroImageManagement/AdminHeroImages'
+import AdminHeroImageCreate from './pages/admin/heroImageManagement/AdminHeroImageCreate'
+
 // Contact Management
 import AdminContacts from './pages/admin/contactManagement/AdminContacts'
 import AdminContactDetails from './pages/admin/contactManagement/AdminContactDetails'
@@ -82,7 +87,7 @@ const AdminRedirect = ({ children }) => {
 
 const App = () => {
   return (
-    <>
+    <ErrorBoundary>
       <Toaster
         position="bottom-right"
         toastOptions={{
@@ -162,6 +167,10 @@ const App = () => {
           <Route path="/admin/popups/create" element={<ProtectedRoute adminOnly={true}><AdminPopUpCreate /></ProtectedRoute>} />
           <Route path="/admin/popups/edit/:id" element={<ProtectedRoute adminOnly={true}><AdminPopUpEdit /></ProtectedRoute>} />
           <Route path="/admin/popups" element={<ProtectedRoute adminOnly={true}><AdminPopUps /></ProtectedRoute>} />
+          {/* Hero Image routes */}
+          <Route path="/admin/hero-images/create" element={<ProtectedRoute adminOnly={true}><AdminHeroImageCreate /></ProtectedRoute>} />
+          <Route path="/admin/hero-images/edit" element={<ProtectedRoute adminOnly={true}><AdminHeroImageCreate /></ProtectedRoute>} />
+          <Route path="/admin/hero-images" element={<ProtectedRoute adminOnly={true}><AdminHeroImages /></ProtectedRoute>} />
           {/* Contact routes */}
           <Route path="/admin/contacts/:id" element={<ProtectedRoute adminOnly={true}><AdminContactDetails /></ProtectedRoute>} />
           <Route path="/admin/contacts" element={<ProtectedRoute adminOnly={true}><AdminContacts /></ProtectedRoute>} />
@@ -171,7 +180,7 @@ const App = () => {
         </Routes>
       </div>
       <Footer />
-    </>
+    </ErrorBoundary>
   )
 }
 

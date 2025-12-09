@@ -854,12 +854,23 @@ const ProductDetails = () => {
                             <button onClick={() => navigate("/")} className="hover:text-[#5c2d16]">Home</button>
                             <span>/</span>
                             <button onClick={() => navigate("/products")} className="hover:text-[#5c2d16]">Products</button>
-                            {product.category?.name && (
+                            {(product.categories && product.categories.length > 0) || product.category?.name ? (
                                 <>
                                     <span>/</span>
-                                    <span className="text-[#5c2d16]">{product.category.name}</span>
+                                    <div className="flex flex-wrap items-center gap-1">
+                                        {(product.categories && product.categories.length > 0) ? (
+                                            product.categories.map((cat, index) => (
+                                                <React.Fragment key={cat._id || cat}>
+                                                    {index > 0 && <span className="text-gray-400">,</span>}
+                                                    <span className="text-[#5c2d16]">{cat.name || cat}</span>
+                                                </React.Fragment>
+                                            ))
+                                        ) : (
+                                            <span className="text-[#5c2d16]">{product.category.name}</span>
+                                        )}
+                                    </div>
                                 </>
-                            )}
+                            ) : null}
                         </div>
                     </div>
                 </div>

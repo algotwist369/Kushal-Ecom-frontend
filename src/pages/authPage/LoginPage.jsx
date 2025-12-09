@@ -77,8 +77,10 @@ const LoginPage = () => {
                     )}
 
                     {/* Google Login */}
-                    <div className="mb-4">
-                        <GoogleLoginButton />
+                    <div className="mb-4 w-full flex justify-center">
+                        <div className="w-full max-w-[384px]">
+                            <GoogleLoginButton />
+                        </div>
                     </div>
 
                     {/* Divider / Toggle */}
@@ -151,7 +153,7 @@ const LoginPage = () => {
                                     </button>
                                 </div>
                                 <div className="mt-2 flex justify-between items-center text-[11px] text-gray-400">
-                                    <span>Use at least 8 characters.</span>
+                                    <span>Password must be at least 8 characters with uppercase, lowercase, and number.</span>
                                     {/* Optional: add forgot password route later */}
                                 </div>
                             </div>

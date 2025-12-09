@@ -32,7 +32,10 @@ api.interceptors.response.use(
             const errorMessage = error.response?.data?.message || '';
             const lowerMessage = errorMessage.toLowerCase();
             
-            console.warn('🚫 Unauthorized:', errorMessage);
+            // Only log in development
+            if (import.meta.env.DEV) {
+                console.warn('🚫 Unauthorized:', errorMessage);
+            }
             
             // Check if it's an authentication failure that requires logout
             const isAuthFailure = lowerMessage.includes('token') ||
@@ -68,7 +71,9 @@ api.interceptors.response.use(
             }
         } else if (error.response?.status === 403) {
             // Forbidden - could be admin access or account deactivated
-            console.warn('🚫 Forbidden:', error.response?.data?.message);
+            if (import.meta.env.DEV) {
+                console.warn('🚫 Forbidden:', error.response?.data?.message);
+            }
             
             // Only logout if account is deactivated (not just permission denied)
             const isAccountDeactivated = error.response?.data?.message?.toLowerCase().includes('deactivated') ||

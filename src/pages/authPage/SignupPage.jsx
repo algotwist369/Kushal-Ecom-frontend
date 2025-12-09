@@ -37,8 +37,10 @@ const SignupPage = () => {
             return;
         }
 
-        if (password.length < 6) {
-            setError("Password must be at least 6 characters long");
+        // Validate password strength (matches backend requirements)
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$/;
+        if (!passwordRegex.test(password)) {
+            setError("Password must be at least 8 characters with uppercase, lowercase, and at least one number");
             return;
         }
 
@@ -48,7 +50,6 @@ const SignupPage = () => {
             const result = await registerUser({ fullname, email, phone, password });
 
             if (result.success) {
-                login(result.data);
                 login(result.data);
 
                 // Check if there's a return url
@@ -87,8 +88,10 @@ const SignupPage = () => {
                     )}
 
                     {/* Google Login */}
-                    <div className="mb-4">
-                        <GoogleLoginButton />
+                    <div className="mb-4 w-full flex justify-center">
+                        <div className="w-full max-w-[384px]">
+                            <GoogleLoginButton />
+                        </div>
                     </div>
 
                     {/* Divider / Toggle */}
@@ -138,13 +141,16 @@ const SignupPage = () => {
                                     <input
                                         type="tel"
                                         value={phone}
-                                        onChange={(e) =>
-                                            setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))
-                                        }
+                                        onChange={(e) => {
+                                            const cleaned = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                            setPhone(cleaned);
+                                        }}
                                         placeholder="10-digit mobile number"
                                         className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#5c2d16]/70 focus:border-transparent placeholder:text-gray-400"
                                         required
                                         maxLength={10}
+                                        pattern="[6-9][0-9]{9}"
+                                        title="Enter a valid 10-digit Indian phone number starting with 6-9"
                                     />
                                 </div>
                             </div>
@@ -191,7 +197,7 @@ const SignupPage = () => {
                                         </button>
                                     </div>
                                     <p className="mt-1 text-[11px] text-gray-400">
-                                        Use at least 8 characters with a mix of letters & numbers.
+                                        Use at least 8 characters with uppercase, lowercase, and at least one number.
                                     </p>
                                 </div>
                                 <div>

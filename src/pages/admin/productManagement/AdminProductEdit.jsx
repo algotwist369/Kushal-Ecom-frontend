@@ -27,7 +27,8 @@ const AdminProductEdit = () => {
         price: '',
         discountPrice: '',
         stock: '',
-        category: '',
+        category: '', // Keep for backward compatibility
+        categories: [], // New multiple categories array
         images: [''],
         attributes: {},
         isActive: true,
@@ -178,6 +179,9 @@ const AdminProductEdit = () => {
                     discountPrice: product.discountPrice !== undefined && product.discountPrice !== null ? product.discountPrice : '',
                     stock: product.stock !== undefined && product.stock !== null ? product.stock : '',
                     category: product.category?._id || product.category || '',
+                    categories: Array.isArray(product.categories) && product.categories.length > 0
+                        ? product.categories.map(cat => cat._id || cat)
+                        : (product.category ? [product.category._id || product.category] : []),
                     images: Array.isArray(product.images) && product.images.length > 0 ? product.images : [''],
                     attributes: product.attributes && typeof product.attributes === 'object' ? product.attributes : {},
                     isActive: product.isActive !== undefined ? product.isActive : true,
@@ -190,7 +194,11 @@ const AdminProductEdit = () => {
                     storageInstructions: product.storageInstructions || '',
                     manufacturer: product.manufacturer || '',
                     batchNumber: product.batchNumber || '',
-                    expiryDate: product.expiryDate ? product.expiryDate.split('T')[0] : '',
+                    expiryDate: product.expiryDate 
+                        ? (typeof product.expiryDate === 'string' 
+                            ? product.expiryDate.split('T')[0] 
+                            : new Date(product.expiryDate).toISOString().split('T')[0])
+                        : '',
                     certification: Array.isArray(product.certification) && product.certification.length > 0 ? product.certification : [{ image: '', name: '', description: '' }],
                     origin: product.origin || '',
                     processingMethod: product.processingMethod || '',
@@ -354,6 +362,27 @@ const AdminProductEdit = () => {
         formDataRef.current = formData;
     }, [formData]);
 
+    // Keyboard shortcut handler - Ctrl+S or Cmd+S to save
+    useEffect(() => {
+        const handleKeyPress = (e) => {
+            // Ctrl+S or Cmd+S to save
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                if (!saving && !loading) {
+                    // Trigger form submission
+                    const form = document.querySelector('form');
+                    if (form) {
+                        const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+                        form.dispatchEvent(submitEvent);
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyPress);
+        return () => window.removeEventListener('keydown', handleKeyPress);
+    }, [saving, loading]);
+
     const handleChange = useCallback((e) => {
         const { name, value, type, checked } = e.target;
         setFormData(prev => ({
@@ -461,8 +490,14 @@ const AdminProductEdit = () => {
         setSaving(true);
 
         try {
-            // Get current formData from ref (always has latest value)
-            const currentFormData = formDataRef.current;
+            // Get current formData - use state directly to ensure latest values, fallback to ref
+            // This ensures we have the most up-to-date data, especially for categories
+            let currentFormData = formData;
+            
+            // Double-check with ref if state seems stale (shouldn't happen but safety check)
+            if (!currentFormData || !currentFormData.categories || currentFormData.categories.length === 0) {
+                currentFormData = formDataRef.current;
+            }
 
             // Validate formData exists
             if (!currentFormData || typeof currentFormData !== 'object') {
@@ -492,8 +527,9 @@ const AdminProductEdit = () => {
                 return;
             }
 
-            if (!currentFormData.category || currentFormData.category.trim() === '') {
-                setError('Category is required');
+            // Validate categories
+            if (!currentFormData.categories || !Array.isArray(currentFormData.categories) || currentFormData.categories.length === 0) {
+                setError('At least one category is required');
                 setSaving(false);
                 return;
             }
@@ -515,7 +551,29 @@ const AdminProductEdit = () => {
             }
 
             // Clean up data before submission - explicitly exclude slug (it's auto-generated from name in backend)
-            const { slug, ...formDataWithoutSlug } = currentFormData;
+            const { slug, category, categories, ...formDataWithoutSlug } = currentFormData;
+            
+            // Ensure categories is a valid array of category IDs
+            const categoriesArray = Array.isArray(currentFormData.categories) && currentFormData.categories.length > 0
+                ? currentFormData.categories.filter(cat => cat && (typeof cat === 'string' || cat._id))
+                    .map(cat => typeof cat === 'string' ? cat : (cat._id || cat))
+                : [];
+            
+            // Debug logging (only in development)
+            if (import.meta.env.DEV) {
+                console.log('📦 Categories before submission:', {
+                    originalCategories: currentFormData.categories,
+                    processedCategories: categoriesArray,
+                    categoriesLength: categoriesArray.length
+                });
+            }
+            
+            // Validate categories array is not empty
+            if (categoriesArray.length === 0) {
+                setError('At least one category is required');
+                setSaving(false);
+                return;
+            }
             
             // Prepare submitData with proper transformations
             const submitData = {
@@ -523,8 +581,15 @@ const AdminProductEdit = () => {
                 price: priceNum,
                 discountPrice: discountPriceNum,
                 stock: stockNum,
+                category: categoriesArray[0], // Keep for backward compatibility - first category
+                categories: categoriesArray, // New multiple categories array - explicitly set
                 images: Array.isArray(currentFormData.images) ? currentFormData.images.filter(img => img && typeof img === 'string' && img.trim() !== '') : [],
-                keywords: Array.isArray(currentFormData.keywords) ? currentFormData.keywords.filter(k => k && typeof k === 'string' && k.trim() !== '') : [],
+                keywords: Array.isArray(currentFormData.keywords) 
+                    ? currentFormData.keywords
+                        .filter(k => k && typeof k === 'string' && k.trim() !== '')
+                        .slice(0, 50) // Limit to 50 keywords max
+                        .map(k => k.trim().substring(0, 100)) // Limit each keyword to 100 chars
+                    : [],
                 // Object arrays - send as-is after filtering empty objects (always send array)
                 ingredients: Array.isArray(currentFormData.ingredients) ? currentFormData.ingredients.filter(item => {
                     if (!item || typeof item !== 'object') return false;
@@ -626,6 +691,23 @@ const AdminProductEdit = () => {
             
             // Explicitly remove slug if it somehow exists (triple safety)
             delete submitData.slug;
+            
+            // Ensure categories are explicitly included (double-check)
+            if (!submitData.categories || !Array.isArray(submitData.categories) || submitData.categories.length === 0) {
+                setError('Categories are required. Please select at least one category.');
+                setSaving(false);
+                return;
+            }
+
+            // Debug logging (only in development)
+            if (import.meta.env.DEV) {
+                console.log('📤 Submitting product update:', {
+                    productId: id,
+                    categories: submitData.categories,
+                    category: submitData.category,
+                    categoriesCount: submitData.categories.length
+                });
+            }
 
             // Validate submitData is not empty
             if (!submitData || Object.keys(submitData).length === 0) {
@@ -642,7 +724,17 @@ const AdminProductEdit = () => {
                     loading: 'Updating product...',
                     success: 'Product updated successfully!',
                     error: (err) => {
-                        const errorMsg = err?.message || err?.response?.data?.message || 'Failed to update product';
+                        // Extract error message from various possible locations
+                        let errorMsg = 'Failed to update product';
+                        if (err?.response?.data?.message) {
+                            errorMsg = err.response.data.message;
+                        } else if (err?.message) {
+                            errorMsg = err.message;
+                        } else if (typeof err === 'string') {
+                            errorMsg = err;
+                        } else if (err?.data?.message) {
+                            errorMsg = err.data.message;
+                        }
                         return errorMsg;
                     },
                 }
@@ -650,14 +742,23 @@ const AdminProductEdit = () => {
 
             const result = await updatePromise;
             
-            if (result.success) {
-                // Navigate after a short delay to show success message
-                setTimeout(() => {
-                    navigate('/admin/products', { state: { from: 'edit' } });
-                }, 1000);
+            if (result.success && result.data) {
+                // Validate response data exists
+                if (result.data && typeof result.data === 'object') {
+                    // Navigate back to products list after successful update
+                    setTimeout(() => {
+                        navigate('/admin/products', { replace: true, state: { refresh: Date.now() } });
+                    }, 1000);
+                } else {
+                    // Response structure unexpected but success=true, still navigate
+                    console.warn('Unexpected response structure:', result);
+                    setTimeout(() => {
+                        navigate('/admin/products', { replace: true, state: { refresh: Date.now() } });
+                    }, 1000);
+                }
             } else {
                 // Handle validation errors from backend
-                const errorMessage = result.message || 'Failed to update product';
+                const errorMessage = result?.message || result?.error?.message || 'Failed to update product. Please try again.';
                 setError(errorMessage);
                 
                 // Show detailed error in toast
@@ -764,13 +865,42 @@ const AdminProductEdit = () => {
                 {/* Header */}
                 <div className="mb-6">
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between flex-wrap gap-4">
                             <div>
                                 <h1 className="text-3xl font-bold text-gray-900 mb-1">Edit Product</h1>
                                 <p className="text-gray-500 text-sm">Update product information and details</p>
                             </div>
-                            <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg">
-                                <span className="text-xs font-medium text-blue-600">Step {currentStep + 1} of 7</span>
+                            <div className="flex items-center gap-3">
+                                <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg">
+                                    <span className="text-xs font-medium text-blue-600">Step {currentStep + 1} of 7</span>
+                                </div>
+                                {/* Quick Update Button */}
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        handleSubmit(e);
+                                    }}
+                                    disabled={saving || loading}
+                                    className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 font-semibold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-md"
+                                >
+                                    {saving ? (
+                                        <>
+                                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span>Updating...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                            <span>Update Product</span>
+                                        </>
+                                    )}
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -916,21 +1046,86 @@ const AdminProductEdit = () => {
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Category <span className="text-red-500">*</span>
+                                        Categories <span className="text-red-500">*</span>
+                                        <span className="text-xs text-gray-500 ml-2">(Select multiple categories)</span>
                                     </label>
-                                    <select
-                                        name="category"
-                                        value={formData.category}
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                                        required
-                                        disabled={saving}
-                                    >
-                                        <option value="">Select Category</option>
-                                        {categoryOptions.map(cat => (
-                                            <option key={cat._id} value={cat._id}>{cat.name}</option>
-                                        ))}
-                                    </select>
+                                    <div className="border border-gray-300 rounded-lg p-3 min-h-[42px] max-h-48 overflow-y-auto bg-white">
+                                        {categoryOptions.length === 0 ? (
+                                            <p className="text-gray-500 text-sm">Loading categories...</p>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                {categoryOptions.map((category) => {
+                                                    const isSelected = formData.categories.includes(category._id);
+                                                    return (
+                                                        <label
+                                                            key={category._id}
+                                                            className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isSelected}
+                                                                onChange={(e) => {
+                                                                    setFormData(prev => {
+                                                                        const newCategories = e.target.checked
+                                                                            ? [...prev.categories, category._id]
+                                                                            : prev.categories.filter(id => id !== category._id);
+                                                                        
+                                                                        const newFormData = {
+                                                                            ...prev,
+                                                                            categories: newCategories,
+                                                                            category: newCategories.length > 0 ? newCategories[0] : prev.category // Keep first for backward compatibility
+                                                                        };
+                                                                        
+                                                                        // Update ref immediately for synchronous access
+                                                                        formDataRef.current = newFormData;
+                                                                        
+                                                                        return newFormData;
+                                                                    });
+                                                                }}
+                                                                className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                                                                disabled={saving}
+                                                            />
+                                                            <span className="text-sm text-gray-700">{category.name}</span>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {formData.categories.length > 0 && (
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                            {formData.categories.map((catId) => {
+                                                const cat = categoryOptions.find(c => c._id === catId);
+                                                return cat ? (
+                                                    <span
+                                                        key={catId}
+                                                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"
+                                                    >
+                                                        {cat.name}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setFormData(prev => ({
+                                                                    ...prev,
+                                                                    categories: prev.categories.filter(id => id !== catId),
+                                                                    category: prev.categories[0] === catId && prev.categories.length > 1 
+                                                                        ? prev.categories[1] 
+                                                                        : (prev.categories.length === 1 ? '' : prev.category)
+                                                                }));
+                                                            }}
+                                                            className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-green-200"
+                                                            disabled={saving}
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </span>
+                                                ) : null;
+                                            })}
+                                        </div>
+                                    )}
+                                    {formData.categories.length === 0 && (
+                                        <p className="mt-1 text-xs text-red-500">At least one category is required</p>
+                                    )}
                                 </div>
                             </div>
 
@@ -2256,6 +2451,39 @@ const AdminProductEdit = () => {
                     </div>
                 </form>
             </div>
+
+            {/* Floating Update Button - Always visible */}
+            <div className="fixed bottom-6 right-6 z-50">
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.preventDefault();
+                        handleSubmit(e);
+                    }}
+                    disabled={saving || loading}
+                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-full shadow-2xl hover:from-green-700 hover:to-green-800 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-2xl group"
+                    title="Update product (Ctrl+S)"
+                >
+                    {saving ? (
+                        <>
+                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span className="hidden sm:inline">Updating...</span>
+                        </>
+                    ) : (
+                        <>
+                            <svg className="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span className="hidden sm:inline">Update</span>
+                            <span className="sm:hidden">Save</span>
+                        </>
+                    )}
+                </button>
+            </div>
+
         </div>
     );
 };

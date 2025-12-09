@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay } from 'swiper/modules';
 import BestsellerCard from './BestsellerCard';
+import { sanitizeHTML } from '../../utils/sanitize';
 
 // Import Swiper styles
 import 'swiper/css';
@@ -227,7 +228,7 @@ const BestsellerSection = () => {
       </div>
 
       <style dangerouslySetInnerHTML={{
-        __html: `
+        __html: sanitizeHTML(`
         .bestseller-slider .swiper-slide {
           height: auto;
           display: flex;
@@ -268,7 +269,8 @@ const BestsellerSection = () => {
           opacity: 0.3;
           cursor: not-allowed;
         }
-      `}} />
+      `)
+      }} />
     </section>
   );
 };

@@ -90,22 +90,22 @@ const Cart = () => {
         }
     };
 
-    const handleRemove = async (productId) => {
+    const handleRemove = async (productId, isPack = false, packSize = undefined) => {
         try {
-            await removeFromCart(productId);
+            await removeFromCart(productId, isPack, packSize);
             setItemToRemove(null);
         } catch (error) {
             // Error already handled in context
         }
     };
 
-    const handleRemoveClick = (productId, productName) => {
-        setItemToRemove({ id: productId, name: productName });
+    const handleRemoveClick = (productId, productName, isPack = false, packSize = undefined) => {
+        setItemToRemove({ id: productId, name: productName, isPack, packSize });
     };
 
     const confirmRemove = () => {
         if (itemToRemove) {
-            handleRemove(itemToRemove.id);
+            handleRemove(itemToRemove.id, itemToRemove.isPack, itemToRemove.packSize);
         }
     };
 
@@ -492,7 +492,7 @@ const Cart = () => {
 
                                                 {/* Remove Button */}
                                                 <button
-                                                    onClick={() => handleRemoveClick(product._id, product.name)}
+                                                    onClick={() => handleRemoveClick(product._id, product.name, item.isPack, item.packInfo?.packSize)}
                                                     className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition"
                                                     title="Remove from cart"
                                                 >

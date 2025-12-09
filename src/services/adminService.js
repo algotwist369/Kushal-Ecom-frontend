@@ -93,13 +93,18 @@ export const getAllProducts = async (params = {}, signal = null) => {
 
 export const getProductById = async (productId, signal) => {
     try {
-        console.log('📡 API call: GET /products/' + productId);
+        // Only log in development
+        if (import.meta.env.DEV) {
+            console.log('📡 API call: GET /products/' + productId);
+        }
         const response = await api.get(`/products/${productId}`, { signal });
-        console.log('📡 API response received:', {
-            status: response.status,
-            hasData: !!response.data,
-            dataKeys: response.data ? Object.keys(response.data) : []
-        });
+        if (import.meta.env.DEV) {
+            console.log('📡 API response received:', {
+                status: response.status,
+                hasData: !!response.data,
+                dataKeys: response.data ? Object.keys(response.data) : []
+            });
+        }
         return {
             success: true,
             data: response.data
@@ -107,13 +112,16 @@ export const getProductById = async (productId, signal) => {
     } catch (error) {
         // Don't treat AbortError as a real error
         if (error.name === 'AbortError' || error.code === 'ERR_CANCELED') {
-            console.log('⚠️ API call was aborted');
+            if (import.meta.env.DEV) {
+                console.log('⚠️ API call was aborted');
+            }
             return {
                 success: false,
                 message: 'Request was cancelled',
                 aborted: true
             };
         }
+        // Always log errors, even in production
         console.error('❌ API call failed:', {
             productId,
             status: error.response?.status,
@@ -449,6 +457,109 @@ export const deleteCoupon = async (couponId) => {
         return {
             success: false,
             message: error.response?.data?.message || 'Failed to delete coupon'
+        };
+    }
+};
+
+// ============= HERO IMAGES MANAGEMENT =============
+export const getHeroImages = async () => {
+    try {
+        const response = await api.get('/hero-images', {
+            params: {
+                _t: Date.now() // Cache busting
+            }
+        });
+        return {
+            success: true,
+            data: response.data.data
+        };
+    } catch (error) {
+        return {
+            success: false,
+            message: error.response?.data?.message || 'Failed to fetch hero images'
+        };
+    }
+};
+
+export const getHeroImagesAdmin = async () => {
+    try {
+        const response = await api.get('/hero-images/admin', {
+            params: {
+                _t: Date.now() // Cache busting
+            }
+        });
+        return {
+            success: true,
+            data: response.data.data
+        };
+    } catch (error) {
+        return {
+            success: false,
+            message: error.response?.data?.message || 'Failed to fetch hero images'
+        };
+    }
+};
+
+export const createOrUpdateHeroImages = async (images) => {
+    try {
+        const response = await api.post('/hero-images', { images });
+        return {
+            success: true,
+            data: response.data.data,
+            message: response.data.message || 'Hero images updated successfully'
+        };
+    } catch (error) {
+        return {
+            success: false,
+            message: error.response?.data?.message || 'Failed to update hero images'
+        };
+    }
+};
+
+export const addHeroImages = async (images) => {
+    try {
+        const response = await api.post('/hero-images/add', { images });
+        return {
+            success: true,
+            data: response.data.data,
+            message: response.data.message || 'Hero images added successfully'
+        };
+    } catch (error) {
+        return {
+            success: false,
+            message: error.response?.data?.message || 'Failed to add hero images'
+        };
+    }
+};
+
+export const deleteHeroImage = async (index) => {
+    try {
+        const response = await api.delete(`/hero-images/${index}`);
+        return {
+            success: true,
+            data: response.data.data,
+            message: response.data.message || 'Hero image deleted successfully'
+        };
+    } catch (error) {
+        return {
+            success: false,
+            message: error.response?.data?.message || 'Failed to delete hero image'
+        };
+    }
+};
+
+export const deleteAllHeroImages = async () => {
+    try {
+        const response = await api.delete('/hero-images');
+        return {
+            success: true,
+            data: response.data.data,
+            message: response.data.message || 'All hero images deleted successfully'
+        };
+    } catch (error) {
+        return {
+            success: false,
+            message: error.response?.data?.message || 'Failed to delete hero images'
         };
     }
 };
