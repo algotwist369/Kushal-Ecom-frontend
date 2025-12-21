@@ -977,62 +977,101 @@ const ProductDetails = () => {
 
                             {/* Pack Options */}
                             {product.packOptions && product.packOptions.length > 0 && (
-                                <div className="mb-6">
-                                    <p className="text-sm font-semibold text-[#5c2d16] mb-3">Select Size:</p>
+                                <div className="mb-8">
+                                    <h3 className="text-sm font-semibold text-[#5c2d16] mb-3">Select Pack Size:</h3>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        {/* Single Pack Button */}
                                         <button
-                                            onClick={() => setSelectedPack(null)}
-                                            className={`border-2 rounded-lg p-4 text-left transition-all ${!selectedPack ? 'border-[#5c2d16] bg-gray-50' : 'border-gray-200 hover:border-gray-400'
+                                            onClick={() => {
+                                                setSelectedPack(null);
+                                                setMainImage(product.images?.[0] || "");
+                                                setSelectedImageIndex(0);
+                                            }}
+                                            className={`relative group flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all duration-200 ${!selectedPack
+                                                ? 'border-[#5c2d16] bg-[#5c2d16]/5 shadow-md'
+                                                : 'border-gray-100 bg-white hover:border-[#5c2d16]/30 hover:shadow-sm'
                                                 }`}
                                         >
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
-                                                    <span className="text-lg font-bold text-gray-600">1</span>
-                                                </div>
-                                                <div>
-                                                    <p className="font-medium text-sm">Single</p>
-                                                    <p className="text-lg font-bold">₹{product.discountPrice || product.price}</p>
+                                            <div className={`w-14 h-14 flex-shrink-0 rounded-lg overflow-hidden border ${!selectedPack ? 'border-[#5c2d16]/20' : 'border-gray-100'} bg-white flex items-center justify-center p-1`}>
+                                                <img
+                                                    src={product.images?.[0]}
+                                                    alt="Single Pack"
+                                                    className="w-full h-full object-contain"
+                                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                                />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className={`text-sm font-medium truncate ${!selectedPack ? 'text-[#5c2d16]' : 'text-gray-700'}`}>
+                                                    Single Pack
+                                                </p>
+                                                <div className="flex items-baseline gap-1.5 mt-0.5">
+                                                    <span className="text-lg font-bold text-[#5c2d16]">₹{product.discountPrice || product.price}</span>
                                                 </div>
                                             </div>
+                                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors ${!selectedPack ? 'border-[#5c2d16] bg-[#5c2d16]' : 'border-gray-300'
+                                                }`}>
+                                                {!selectedPack && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                                            </div>
                                         </button>
-                                        {product.packOptions.map((pack, idx) => (
-                                            <button
-                                                key={idx}
-                                                onClick={() => setSelectedPack(pack)}
-                                                className={`relative border-2 rounded-lg p-4 text-left transition-all ${selectedPack === pack ? 'border-[#5c2d16] bg-gray-50' : 'border-gray-200 hover:border-gray-400'
-                                                    }`}
-                                            >
-                                                {pack.savingsPercent > 0 && (
-                                                    <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs px-2 py-0.5 rounded-full font-bold">
-                                                        -{pack.savingsPercent}%
-                                                    </span>
-                                                )}
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-gray-200">
+
+                                        {/* Other Pack Options */}
+                                        {product.packOptions.map((pack, idx) => {
+                                            const isSelected = selectedPack === pack;
+                                            return (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => {
+                                                        setSelectedPack(pack);
+                                                        if (pack.image) {
+                                                            setMainImage(pack.image);
+                                                            setSelectedImageIndex(-1);
+                                                        }
+                                                    }}
+                                                    className={`relative group flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all duration-200 ${isSelected
+                                                        ? 'border-[#5c2d16] bg-[#5c2d16]/5 shadow-md'
+                                                        : 'border-gray-100 bg-white hover:border-[#5c2d16]/30 hover:shadow-sm'
+                                                        }`}
+                                                >
+                                                    {pack.savingsPercent > 0 && (
+                                                        <div className="absolute -top-2.5 -right-2 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm z-10 tracking-wide uppercase">
+                                                            {pack.savingsPercent}% OFF
+                                                        </div>
+                                                    )}
+
+                                                    <div className={`w-14 h-14 flex-shrink-0 rounded-lg overflow-hidden border ${isSelected ? 'border-[#5c2d16]/20' : 'border-gray-100'} bg-white p-1`}>
                                                         {pack.image ? (
                                                             <img
                                                                 src={pack.image}
                                                                 alt={pack.label || `Pack of ${pack.packSize}`}
-                                                                className="w-full h-full object-cover"
+                                                                className="w-full h-full object-contain"
                                                                 onError={(e) => {
                                                                     e.target.style.display = 'none';
                                                                     e.target.nextSibling.style.display = 'flex';
                                                                 }}
                                                             />
                                                         ) : null}
-                                                        <div
-                                                            className={`w-full h-full rounded-lg flex items-center justify-center ${pack.image ? 'hidden' : ''}`}
-                                                        >
-                                                            <span className="text-lg font-bold text-gray-600">{pack.packSize}</span>
+                                                        <div className={`w-full h-full flex items-center justify-center bg-gray-50 text-gray-400 ${pack.image ? 'hidden' : 'flex'}`}>
+                                                            <span className="text-sm font-bold">{pack.packSize}x</span>
                                                         </div>
                                                     </div>
-                                                    <div className="flex-1">
-                                                        <p className="font-medium text-sm">{pack.label || `Pack of ${pack.packSize}`}</p>
-                                                        <p className="text-lg font-bold">₹{pack.packPrice}</p>
+
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className={`text-sm font-medium truncate ${isSelected ? 'text-[#5c2d16]' : 'text-gray-700'}`}>
+                                                            {pack.label || `Pack of ${pack.packSize}`}
+                                                        </p>
+                                                        <div className="flex items-baseline gap-1.5 mt-0.5">
+                                                            <span className="text-lg font-bold text-[#5c2d16]">₹{pack.packPrice}</span>
+                                                            <span className="text-xs text-xs text-gray-400 font-normal">/pack</span>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </button>
-                                        ))}
+
+                                                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors ${isSelected ? 'border-[#5c2d16] bg-[#5c2d16]' : 'border-gray-300'
+                                                        }`}>
+                                                        {isSelected && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}

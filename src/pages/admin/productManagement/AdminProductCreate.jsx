@@ -89,7 +89,7 @@ const AdminProductCreate = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [currentStep, setCurrentStep] = useState(0);
-    
+
     // Refs to prevent duplicate API calls
     const fetchingRef = useRef(false);
     const fetchingProductsRef = useRef(false);
@@ -98,10 +98,10 @@ const AdminProductCreate = () => {
 
     const fetchCategories = useCallback(async () => {
         if (fetchingRef.current) return;
-        
+
         fetchingRef.current = true;
         abortControllerRef.current = new AbortController();
-        
+
         try {
             const result = await getAllCategories();
             if (result.success) {
@@ -122,10 +122,10 @@ const AdminProductCreate = () => {
 
     const fetchProducts = useCallback(async () => {
         if (fetchingProductsRef.current) return;
-        
+
         fetchingProductsRef.current = true;
         abortProductsControllerRef.current = new AbortController();
-        
+
         try {
             const result = await getAllProducts({ limit: 1000, isActive: true });
             if (result.success) {
@@ -147,7 +147,7 @@ const AdminProductCreate = () => {
     useEffect(() => {
         fetchCategories();
         fetchProducts();
-        
+
         return () => {
             if (abortControllerRef.current) {
                 abortControllerRef.current.abort();
@@ -213,15 +213,15 @@ const AdminProductCreate = () => {
 
     const handlePackOptionImageUpload = useCallback(async (packIndex, file) => {
         if (!file) return;
-        
+
         try {
             const formData = new FormData();
             formData.append('packOptionImages', file);
-            
+
             const response = await api.post('/upload/products/pack-options', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            
+
             if (response.data.images && response.data.images.length > 0) {
                 updateObjectList('packOptions', packIndex, 'image', response.data.images[0]);
                 toast.success('Pack option image uploaded successfully');
@@ -535,8 +535,8 @@ const AdminProductCreate = () => {
                                                                 setFormData(prev => ({
                                                                     ...prev,
                                                                     categories: prev.categories.filter(id => id !== category._id),
-                                                                    category: prev.categories[0] === category._id && prev.categories.length > 1 
-                                                                        ? prev.categories[1] 
+                                                                    category: prev.categories[0] === category._id && prev.categories.length > 1
+                                                                        ? prev.categories[1]
                                                                         : (prev.categories.length === 1 ? '' : prev.category)
                                                                 }));
                                                             }
@@ -567,8 +567,8 @@ const AdminProductCreate = () => {
                                                         setFormData(prev => ({
                                                             ...prev,
                                                             categories: prev.categories.filter(id => id !== catId),
-                                                            category: prev.categories[0] === catId && prev.categories.length > 1 
-                                                                ? prev.categories[1] 
+                                                            category: prev.categories[0] === catId && prev.categories.length > 1
+                                                                ? prev.categories[1]
                                                                 : (prev.categories.length === 1 ? '' : prev.category)
                                                         }));
                                                     }}
@@ -1044,6 +1044,14 @@ const AdminProductCreate = () => {
                                 </div>
                                 <div className="flex flex-col gap-2">
                                     <label className="block text-xs text-gray-600 mb-1">Pack Image</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Image URL"
+                                        value={option.image || ''}
+                                        onChange={(event) => updateObjectList('packOptions', index, 'image', event.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-2"
+                                        disabled={loading}
+                                    />
                                     <div className="flex gap-2">
                                         <input
                                             type="file"
@@ -1057,7 +1065,7 @@ const AdminProductCreate = () => {
                                             htmlFor={`pack-image-${index}`}
                                             className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 cursor-pointer text-xs"
                                         >
-                                            Upload
+                                            Upload Image
                                         </label>
                                         {option.image && (
                                             <button
@@ -1396,13 +1404,12 @@ const AdminProductCreate = () => {
                                         key={section.id}
                                         type="button"
                                         onClick={() => goToStep(index)}
-                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                                            isActive
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${isActive
                                                 ? 'bg-gradient-to-r from-green-600 to-green-700 text-white shadow-md'
                                                 : isCompleted
-                                                ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
-                                                : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
-                                        }`}
+                                                    ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
+                                                    : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                                            }`}
                                         disabled={loading}
                                     >
                                         {isCompleted && (
@@ -1424,7 +1431,7 @@ const AdminProductCreate = () => {
                             <h2 className="text-2xl font-bold text-gray-900 mb-2">{currentSection.title}</h2>
                             <p className="text-gray-600">{currentSection.description}</p>
                         </div>
-                        
+
                         <div className="space-y-6">
                             {currentSection.content}
                         </div>
@@ -1446,7 +1453,7 @@ const AdminProductCreate = () => {
                                     </button>
                                 )}
                             </div>
-                            
+
                             <div className="flex items-center gap-4">
                                 <button
                                     type="button"

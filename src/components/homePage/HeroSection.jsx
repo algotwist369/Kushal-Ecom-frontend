@@ -87,10 +87,11 @@ const HeroSection = () => {
                 src={slide.large_image}
                 alt={`Hero Slide ${index + 1}`}
                 loading="lazy"
-                className="w-full h-full object-contain 
-                           md:object-contain 
-                           md:max-w-[1200px] 
-                           md:max-h-[550px] 
+                className="w-full h-full object-contain
+                           md:object-cover 
+                           md:max-w-[1900px] 
+                           md:max-h-[850px] 
+                           md:min-h-[650px] 
                            mx-auto"
               />
             </picture>
