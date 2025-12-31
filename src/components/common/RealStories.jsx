@@ -1,12 +1,17 @@
-import React, { useState } from "react";
-import { FaStar, FaStarHalfAlt, FaRegStar } from "react-icons/fa";
-import { BsChevronLeft, BsChevronRight } from "react-icons/bs";
+import React from "react";
+import { FaStar, FaQuoteRight } from "react-icons/fa";
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Navigation, Pagination, Autoplay } from "swiper/modules";
+import "swiper/css";
+import "swiper/css/navigation";
+import "swiper/css/pagination";
 
 const RealStories = () => {
   const reviews = [
     {
       id: 1,
       name: "Priya Sharma",
+      role: "Wellness Enthusiast",
       image: "https://randomuser.me/api/portraits/women/68.jpg",
       rating: 5,
       comment:
@@ -15,14 +20,16 @@ const RealStories = () => {
     {
       id: 2,
       name: "Rohit Kumar",
+      role: "Verified Buyer",
       image: "https://randomuser.me/api/portraits/men/45.jpg",
-      rating: 4.5,
+      rating: 5,
       comment:
         "The Herbal Face Cream improved my skin texture significantly. Highly recommend for anyone looking for natural skincare.",
     },
     {
       id: 3,
       name: "Anjali Verma",
+      role: "Yoga Instructor",
       image: "https://randomuser.me/api/portraits/women/12.jpg",
       rating: 5,
       comment:
@@ -31,6 +38,7 @@ const RealStories = () => {
     {
       id: 4,
       name: "Sanjay Singh",
+      role: "Regular Customer",
       image: "https://randomuser.me/api/portraits/men/22.jpg",
       rating: 4,
       comment:
@@ -39,85 +47,123 @@ const RealStories = () => {
     {
       id: 5,
       name: "Neha Mehta",
+      role: "Verified Buyer",
       image: "https://randomuser.me/api/portraits/women/44.jpg",
       rating: 5,
       comment:
         "The products are authentic and effective. I love the quality and the results are visible quickly.",
     },
+    {
+      id: 6,
+      name: "Arjun Das",
+      role: "Fitness Coach",
+      image: "https://randomuser.me/api/portraits/men/32.jpg",
+      rating: 5,
+      comment:
+        "I love the protein supplements. They are natural, easy to digest, and have really helped with my recovery.",
+    }
   ];
 
-  const [current, setCurrent] = useState(0);
-
-  const prevSlide = () => {
-    setCurrent(current === 0 ? reviews.length - 1 : current - 1);
-  };
-
-  const nextSlide = () => {
-    setCurrent(current === reviews.length - 1 ? 0 : current + 1);
-  };
-
-  const renderStars = (rating) => {
-    const stars = [];
-    for (let i = 1; i <= 5; i++) {
-      if (rating >= i) stars.push(<FaStar key={i} className="text-yellow-400" />);
-      else if (rating >= i - 0.5)
-        stars.push(<FaStarHalfAlt key={i} className="text-yellow-400" />);
-      else stars.push(<FaRegStar key={i} className="text-yellow-400" />);
-    }
-    return stars;
-  };
-
-  // Determine card width based on number of cards per view
-  const cardsPerView = 4; // show 4 cards at once
-  const cardWidth = 100 / cardsPerView + "%";
-
   return (
-    <section className="py-16 bg-gray-50 relative">
-      <div className="max-w-[100rem] mx-auto px-4">
-        <h1 className="text-4xl font-bold mb-12 text-gray-800 text-center">
-          Real People, Real Stories
-        </h1>
+    <section className="py-16 sm:py-24 bg-[#fdfbf7] relative overflow-hidden">
+      {/* Decorative Background Elements */}
+      <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-[#5c2d16]/5 rounded-full blur-3xl" />
+      <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl" />
 
-        {/* Slider */}
-        <div className="relative overflow-hidden">
-          <div
-            className="flex transition-transform duration-500"
-            style={{ transform: `translateX(-${current * (100 / cardsPerView)}%)` }}
-          >
-            {reviews.map((review) => (
-              <div
-                key={review.id}
-                className="px-2"
-                style={{ flex: `0 0 ${cardWidth}` }}
-              >
-                <div className="bg-white rounded-2xl shadow-md p-6 flex flex-col items-center text-center hover:shadow-xl transition">
+      <div className="max-w-[99rem] mx-auto px-4 relative z-10">
+        <div className="text-center mb-12 sm:mb-16">
+          <span className="text-[#5c2d16] font-semibold tracking-wider text-sm uppercase mb-3 block">Testimonials</span>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 font-display mb-4">
+            Real People, Real Stories
+          </h2>
+          <p className="text-gray-500 max-w-2xl mx-auto text-lg">
+            Discover how our Ayurvedic formulations are transforming lives, one story at a time.
+          </p>
+        </div>
+
+        <Swiper
+          modules={[Navigation, Pagination, Autoplay]}
+          spaceBetween={24}
+          slidesPerView={1}
+          centeredSlides={false}
+          loop={true}
+          speed={800}
+          autoplay={{
+            delay: 4000,
+            disableOnInteraction: false,
+            pauseOnMouseEnter: true
+          }}
+          pagination={{
+            clickable: true,
+            el: ".stories-pagination",
+            dynamicBullets: true,
+          }}
+          breakpoints={{
+            640: { slidesPerView: 1.5, spaceBetween: 20 },
+            768: { slidesPerView: 2, spaceBetween: 24 },
+            1024: { slidesPerView: 3, spaceBetween: 30 },
+            1280: { slidesPerView: 4, spaceBetween: 32 },
+          }}
+          className="pb-16 !px-1"
+        >
+          {reviews.map((review) => (
+            <SwiperSlide key={review.id} className="h-auto">
+              <div className="bg-white rounded-2xl p-8 h-full shadow-[0_10px_40px_-10px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1)] transition-all duration-300 border border-gray-100 flex flex-col group relative">
+
+                {/* Quote Icon */}
+                <div className="absolute top-6 right-8 text-gray-100 group-hover:text-[#5c2d16]/10 transition-colors duration-300">
+                  <FaQuoteRight size={48} />
+                </div>
+
+                {/* Stars */}
+                <div className="flex gap-1 mb-6 text-amber-400">
+                  {[...Array(5)].map((_, i) => (
+                    <FaStar
+                      key={i}
+                      size={16}
+                      className={i < Math.floor(review.rating) ? "fill-current" : "text-gray-200"}
+                    />
+                  ))}
+                </div>
+
+                {/* Content */}
+                <blockquote className="text-gray-700 text-lg leading-relaxed mb-8 flex-grow font-medium">
+                  "{review.comment}"
+                </blockquote>
+
+                {/* Author */}
+                <div className="flex items-center gap-4 mt-auto pt-6 border-t border-gray-100">
                   <img
                     src={review.image}
                     alt={review.name}
-                    className="w-20 h-20 rounded-full object-cover mb-4"
+                    className="w-12 h-12 rounded-full object-cover ring-4 ring-gray-50"
                   />
-                  <h3 className="text-lg font-semibold text-gray-800">{review.name}</h3>
-                  <div className="flex justify-center mt-2 mb-4">{renderStars(review.rating)}</div>
-                  <p className="text-gray-600 text-sm">{review.comment}</p>
+                  <div>
+                    <h4 className="font-bold text-gray-900 leading-tight">{review.name}</h4>
+                    <span className="text-xs font-semibold text-[#5c2d16] uppercase tracking-wide">{review.role}</span>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
+            </SwiperSlide>
+          ))}
+        </Swiper>
 
-          {/* Navigation Buttons */}
-          <button
-            onClick={prevSlide}
-            className="absolute top-1/2 left-0 transform -translate-y-1/2 bg-white p-2 rounded-full shadow hover:bg-gray-100 transition"
-          >
-            <BsChevronLeft size={24} />
-          </button>
-          <button
-            onClick={nextSlide}
-            className="absolute top-1/2 right-0 transform -translate-y-1/2 bg-white p-2 rounded-full shadow hover:bg-gray-100 transition"
-          >
-            <BsChevronRight size={24} />
-          </button>
-        </div>
+        <div className="stories-pagination flex justify-center gap-2 mt-8" />
+
+        <style jsx>{`
+            .stories-pagination .swiper-pagination-bullet {
+                width: 8px;
+                height: 8px;
+                background: #d1d5db;
+                opacity: 1;
+                transition: all 0.3s ease;
+            }
+            .stories-pagination .swiper-pagination-bullet-active {
+                width: 24px;
+                background: #5c2d16;
+                border-radius: 999px;
+            }
+        `}</style>
       </div>
     </section>
   );

@@ -14,10 +14,10 @@ const UnlockOffers = () => {
     return (
         <section className="bg-[#fff8f7] py-16 px-6 flex justify-center">
             <div className="max-w-3xl w-full bg-white shadow-lg rounded-2xl p-8 text-center">
-                <h1 className="text-3xl font-bold text-[#381d1b] mb-3">
+                <h1 className="md:text-3xl text-2xl font-bold text-[#381d1b] mb-3">
                     Unlock Offers & Subscribe for Content
                 </h1>
-                <p className="text-gray-600 mb-6">
+                <p className="text-gray-600 text-sm md:text-base mb-6">
                     Join our wellness community to get exclusive discounts, updates, and
                     expert health tips right in your inbox.
                 </p>
@@ -25,7 +25,7 @@ const UnlockOffers = () => {
                 {!subscribed ? (
                     <form
                         onSubmit={handleSubscribe}
-                        className="flex flex-col sm:flex-row justify-center items-center gap-3"
+                        className="flex sm:flex-row justify-center items-center gap-3"
                     >
                         <input
                             type="email"
@@ -47,7 +47,7 @@ const UnlockOffers = () => {
                     </div>
                 )}
 
-                <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-6 text-gray-700">
+                <div className="mt-8 grid grid-cols-3 sm:grid-cols-3 gap-6 text-gray-700">
                     <div>
                         <img
                             src="https://img.icons8.com/color/96/discount--v1.png"

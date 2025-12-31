@@ -95,7 +95,7 @@ const LoginPage = () => {
     };
 
     return (
-        <div className="min-h-screen flex bg-white">
+        <div className="min-h-screen flex bg-white ">
             {/* Left Side - Visual/Brand */}
             <div className="hidden lg:flex lg:w-1/2 relative bg-[#5c2d16] items-center justify-center overflow-hidden">
                 <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=2653&auto=format&fit=crop')] bg-cover bg-center opacity-40 mix-blend-overlay"></div>
@@ -103,10 +103,10 @@ const LoginPage = () => {
 
                 <div className="relative z-10 p-12 text-white max-w-lg">
                     <h1 className="text-5xl font-bold mb-6 font-display leading-tight">
-                        Welcome Back to Your Journey
+                        Welcome Back to Prolific
                     </h1>
                     <p className="text-lg text-white/80 leading-relaxed mb-8">
-                        Sign in to continue accessing exclusive properties and personalized wellness services tailored just for you.
+                        Sign in to continue accessing your personalized Dosha insights, premium wellness products, and exclusive offers.
                     </p>
                     <div className="flex gap-4">
                         <div className="h-1 w-12 bg-amber-400 rounded-full"></div>
@@ -121,8 +121,8 @@ const LoginPage = () => {
             </div>
 
             {/* Right Side - Form */}
-            <div className=" w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 lg:p-24 overflow-y-auto">
-                <div className="border px-6 py-8 shadow-sm rounded-xl w-full max-w-[420px] space-y-8">
+            <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 lg:p-24 overflow-y-auto">
+                <div className="w-full max-w-[420px] space-y-8">
                     {/* Header for Mobile/Desktop */}
                     <div>
                         <h2 className="text-3xl font-bold text-gray-900 tracking-tight">

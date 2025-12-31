@@ -10,7 +10,7 @@ import logoUrl from "../../assets/logo/prolific-logo.png";
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  
+
   const { user, isAuthenticated, logout } = useAuth();
   const { getCartCount } = useCart();
   const navigate = useNavigate();
@@ -60,9 +60,9 @@ const Navbar = () => {
       <div className="max-w-[100rem] mx-auto px-4 py-4 flex justify-between items-center">
         {/* Logo */}
         <Link to="/" className="flex items-center">
-          <img 
-            src={logoUrl} 
-            alt="Prolific Healing Herbs" 
+          <img
+            src={logoUrl}
+            alt="Prolific Healing Herbs"
             className="h-12 w-auto object-contain"
           />
         </Link>
@@ -72,18 +72,17 @@ const Navbar = () => {
           {navLinks.map((link) => {
             // Skip auth-required links if not authenticated
             if (link.authRequired && !isAuthenticated) return null;
-            
+
             const isActive = isActivePath(link.path);
-            
+
             return (
               <Link
                 key={link.path}
                 to={link.path}
-                className={`px-4 py-2 rounded-lg font-medium transition ${
-                  isActive
+                className={`px-4 py-2 rounded-lg font-medium transition ${isActive
                     ? 'bg-[#5c2d16] text-white'
                     : 'text-gray-700 hover:bg-gray-100'
-                }`}
+                  }`}
               >
                 {link.name}
               </Link>
@@ -104,7 +103,7 @@ const Navbar = () => {
               )}
             </Link>
           )}
-          
+
           {/* User Profile Dropdown (when logged in) */}
           {isAuthenticated ? (
             <div className="relative" ref={userMenuRef}>
@@ -117,7 +116,7 @@ const Navbar = () => {
                   {user?.name?.split(' ')[0]}
                 </span>
               </button>
-              
+
               {/* Dropdown Menu */}
               {showUserMenu && (
                 <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl py-2 border border-gray-200">
@@ -130,7 +129,7 @@ const Navbar = () => {
                       </span>
                     )}
                   </div>
-                  
+
                   {user?.role === 'admin' ? (
                     // Admin-only menu items
                     <Link
@@ -179,17 +178,32 @@ const Navbar = () => {
           )}
         </div>
 
-        {/* Mobile Menu Button */}
-        <button
-          className="md:hidden text-gray-700 focus:outline-none"
-          onClick={() => setMenuOpen(!menuOpen)}
-        >
-          {menuOpen ? (
-            <IoMdClose className="text-3xl" />
-          ) : (
-            <IoMdMenu className="text-3xl" />
+        {/* Mobile Right Side */}
+        <div className="md:hidden flex items-center gap-3">
+          {/* Cart Icon (Mobile - non-admin only) */}
+          {user?.role !== 'admin' && (
+            <Link to="/cart" className="relative">
+              <BsCart4 className="text-2xl text-[#5c2d16] hover:text-gray-600 transition" />
+              {cartCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-[#5c2d16] text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
+            </Link>
           )}
-        </button>
+
+          {/* Mobile Menu Button */}
+          <button
+            className="text-gray-700 focus:outline-none"
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            {menuOpen ? (
+              <IoMdClose className="text-3xl" />
+            ) : (
+              <IoMdMenu className="text-3xl" />
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Menu */}
@@ -199,18 +213,17 @@ const Navbar = () => {
           {navLinks.map((link) => {
             // Skip auth-required links if not authenticated
             if (link.authRequired && !isAuthenticated) return null;
-            
+
             const isActive = isActivePath(link.path);
-            
+
             return (
               <Link
                 key={link.path}
                 to={link.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${
-                  isActive
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${isActive
                     ? 'bg-[#5c2d16] text-white'
                     : 'text-gray-700 hover:bg-gray-100'
-                }`}
+                  }`}
                 onClick={() => setMenuOpen(false)}
               >
                 {link.icon}
@@ -235,7 +248,7 @@ const Navbar = () => {
               )}
             </Link>
           )}
-          
+
           {/* User Menu (Mobile) */}
           {isAuthenticated ? (
             <>
@@ -249,7 +262,7 @@ const Navbar = () => {
                   </span>
                 )}
               </div>
-              
+
               {user?.role === 'admin' && (
                 <Link
                   to="/admin"
@@ -260,7 +273,7 @@ const Navbar = () => {
                   <span>Admin Dashboard</span>
                 </Link>
               )}
-              
+
               {user?.role !== 'admin' && (
                 <Link
                   to="/profile"
@@ -271,7 +284,7 @@ const Navbar = () => {
                   <span>My Profile</span>
                 </Link>
               )}
-              
+
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 font-medium transition"

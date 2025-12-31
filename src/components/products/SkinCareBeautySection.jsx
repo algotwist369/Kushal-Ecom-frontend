@@ -126,7 +126,7 @@ const SkinCareBeautySection = () => {
             <img
               src="https://www.biotique.com/cdn/shop/files/CTM_1920x600_3ec49973-00c9-419f-87b0-8f3eb7438dde.jpg?v=1756277660"
               alt="Skin Care & Beauty"
-              className="w-full h-48 sm:h-64 md:h-[35rem] object-cover"
+              className="w-full h-48 sm:h-64 md:h-[35rem] md:object-cover object-contain"
             />
           </div>
 

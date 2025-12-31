@@ -74,10 +74,10 @@ const SignupPage = () => {
 
                 <div className="relative z-10 p-12 text-white max-w-lg">
                     <h1 className="text-5xl font-bold mb-6 font-display leading-tight">
-                        Begin Your Wellness Journey
+                        Begin Your Prolific Journey
                     </h1>
                     <p className="text-lg text-white/80 leading-relaxed mb-8">
-                        Join our exclusive community to access premium wellness services, curated properties, and personalized care.
+                        Join our exclusive community to access authentic Prolific products, personalized wellness plans, and a holistic path to health.
                     </p>
                     <div className="flex gap-4">
                         <div className="h-1 w-4 bg-white/30 rounded-full"></div>
