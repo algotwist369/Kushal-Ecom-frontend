@@ -32,7 +32,7 @@ const HeroSection = () => {
   // Auto slide
   useEffect(() => {
     if (heroData.length === 0) return;
-    
+
     const timer = setInterval(() => {
       setCurrent((prev) =>
         prev === heroData.length - 1 ? 0 : prev + 1
@@ -64,16 +64,14 @@ const HeroSection = () => {
 
   return (
     <section className="relative w-full overflow-hidden">
-      <div className="relative w-full h-[450px] md:h-[600px]">
+      <div className="relative w-full h-[450px] md:h-[650px]">
         {heroData.map((slide, index) => (
           <div
             key={index}
             onClick={() => slide.product_url && navigate(slide.product_url)}
             className={`absolute top-0 left-0 w-full h-full transition-opacity duration-700 ease-in-out 
-              ${index === current
-                ? "opacity-100 z-10"
-                : "opacity-0 z-0"
-              } ${slide.product_url ? "cursor-pointer" : ""}`}
+          ${index === current ? "opacity-100 z-10" : "opacity-0 z-0"} 
+          ${slide.product_url ? "cursor-pointer" : ""}`}
           >
             <picture>
               {/* Mobile First */}
@@ -82,17 +80,17 @@ const HeroSection = () => {
                 srcSet={slide.mobile_image}
               />
 
-              {/* Desktop Image with Max W & H */}
+              {/* Desktop Image */}
               <img
                 src={slide.large_image}
                 alt={`Hero Slide ${index + 1}`}
                 loading="lazy"
-                className="w-full h-full object-contain
-                           md:object-cover 
-                           md:max-w-[1900px] 
-                           md:max-h-[850px] 
-                           md:min-h-[650px] 
-                           mx-auto"
+                className="w-full h-full
+                       object-contain
+                       md:object-cover
+                       md:w-[1900px]
+                       md:h-[650px]
+                       mx-auto"
               />
             </picture>
           </div>
@@ -104,7 +102,7 @@ const HeroSection = () => {
             <button
               onClick={prevSlide}
               className="absolute top-1/2 left-4 md:left-6 -translate-y-1/2 bg-white/60 hover:bg-white/80 backdrop-blur-sm 
-              rounded-full p-3 md:p-4 shadow-md transition z-20"
+          rounded-full p-3 md:p-4 shadow-md transition z-20"
               aria-label="Previous slide"
             >
               <FaArrowLeft className="text-gray-800 text-lg md:text-xl" />
@@ -113,7 +111,7 @@ const HeroSection = () => {
             <button
               onClick={nextSlide}
               className="absolute top-1/2 right-4 md:right-6 -translate-y-1/2 bg-white/60 hover:bg-white/80 backdrop-blur-sm 
-              rounded-full p-3 md:p-4 shadow-md transition z-20"
+          rounded-full p-3 md:p-4 shadow-md transition z-20"
               aria-label="Next slide"
             >
               <FaArrowRight className="text-gray-800 text-lg md:text-xl" />
@@ -129,7 +127,7 @@ const HeroSection = () => {
                 key={idx}
                 onClick={() => setCurrent(idx)}
                 className={`cursor-pointer text-2xl transition 
-                  ${idx === current
+              ${idx === current
                     ? "text-white drop-shadow-lg"
                     : "text-gray-400"
                   }`}
@@ -142,6 +140,7 @@ const HeroSection = () => {
         )}
       </div>
     </section>
+
   );
 };
 

@@ -16,13 +16,13 @@ export const registerUser = async (userData) => {
         }
 
         const response = await api.post('/users/register', payload);
-        
+
         // Save token and user info
         if (response.data.token) {
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('user', JSON.stringify(response.data));
         }
-        
+
         return {
             success: true,
             data: response.data
@@ -57,6 +57,45 @@ export const loginUser = async (credentials) => {
         return {
             success: false,
             message: error.response?.data?.message || 'Login failed. Please check your credentials.'
+        };
+    }
+};
+
+// Send OTP
+export const sendOtp = async (phone) => {
+    try {
+        const response = await api.post('/users/send-otp', { phone });
+        return {
+            success: true,
+            data: response.data
+        };
+    } catch (error) {
+        return {
+            success: false,
+            message: error.response?.data?.message || 'Failed to send OTP'
+        };
+    }
+};
+
+// Verify OTP
+export const verifyOtp = async (phone, otp) => {
+    try {
+        const response = await api.post('/users/verify-otp', { phone, otp });
+
+        // Save token and user info
+        if (response.data.token) {
+            localStorage.setItem('token', response.data.token);
+            localStorage.setItem('user', JSON.stringify(response.data));
+        }
+
+        return {
+            success: true,
+            data: response.data
+        };
+    } catch (error) {
+        return {
+            success: false,
+            message: error.response?.data?.message || 'Invalid OTP'
         };
     }
 };
@@ -100,23 +139,23 @@ export const getUserProfile = async () => {
 export const updateUserProfile = async (userData) => {
     try {
         const payload = {};
-        
+
         if (userData.name) payload.name = userData.name;
         if (userData.phone) payload.phone = userData.phone;
         if (userData.address) payload.address = userData.address;
         if (userData.password) payload.password = userData.password;
 
         const response = await api.put('/users/profile', payload);
-        
+
         // Update stored user info and token (backend returns new token)
         if (response.data.token) {
             localStorage.setItem('token', response.data.token);
         }
-        
+
         const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
         const updatedUser = { ...currentUser, ...response.data };
         localStorage.setItem('user', JSON.stringify(updatedUser));
-        
+
         return {
             success: true,
             data: response.data
@@ -136,12 +175,12 @@ export const changePassword = async (currentPassword, newPassword) => {
             currentPassword,
             newPassword
         });
-        
+
         // Update token (backend returns new token after password change)
         if (response.data.token) {
             localStorage.setItem('token', response.data.token);
         }
-        
+
         return {
             success: true,
             message: response.data.message || 'Password changed successfully'
