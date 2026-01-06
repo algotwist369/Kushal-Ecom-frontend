@@ -87,8 +87,17 @@ const OrderConfirmation = () => {
                 orderId: order._id
             });
 
+            const key = data.key || import.meta.env.VITE_RAZORPAY_KEY_ID;
+            if (!key) {
+                toast.error('Payment gateway is not configured. Please try Cash on Delivery.');
+                navigate('/order-failure', { 
+                    state: { message: 'Payment gateway is not configured. Please try Cash on Delivery.' } 
+                });
+                return;
+            }
+
             const options = {
-                key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+                key,
                 amount: data.amount,
                 currency: data.currency,
                 name: "Prolific Healing Herbs",
