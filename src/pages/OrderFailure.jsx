@@ -89,7 +89,7 @@ const OrderFailure = () => {
                         </p>
                         <div className="space-y-1 text-sm">
                             <p className="text-gray-700">
-                                <span className="font-medium">Email:</span> support@ayurvedicstore.com
+                                <span className="font-medium">Email:</span> 
                             </p>
                             <p className="text-gray-700">
                                 <span className="font-medium">Phone:</span> +91 1800-XXX-XXXX

@@ -194,7 +194,7 @@ const OrderSuccess = () => {
 
                 {/* Additional Info */}
                 <div className="mt-6 text-center text-sm text-gray-500">
-                    <p>Need help? Contact us at support@ayurvedicstore.com</p>
+                    <p>Need help? Contact us at </p>
                 </div>
             </div>
         </div>

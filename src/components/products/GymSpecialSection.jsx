@@ -128,9 +128,9 @@ const GymSpecialSection = () => {
           {/* Poster */}
           <div className="mb-6 sm:mb-8 rounded-lg overflow-hidden">
             <img
-              src="https://cdn.shopify.com/s/files/1/0570/2054/7125/files/Pure_Himalayan_Shilajit_pc.webp?v=1706165537"
+              src="/category/gym.jpeg"
               alt="Special for Gym Enthusiasts"
-              className="w-full h-48 sm:h-64 md:h-80 object-cover"
+              className="w-full h-full sm:h-64 md:h-80 object-cover"
             />
           </div>
 
@@ -204,9 +204,9 @@ const GymSpecialSection = () => {
         {/* Poster Banner */}
         <div className="mb-6 sm:mb-8 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition">
           <img
-            src="https://cdn.shopify.com/s/files/1/0570/2054/7125/files/Pure_Himalayan_Shilajit_pc.webp?v=1706165537"
+            src="/category/gym.jpeg"
             alt="Special for Gym Enthusiasts"
-            className="w-full h-48 sm:h-64 md:h-[35rem] object-cover cursor-pointer"
+            className="w-full h-full object-contain cursor-pointer"
             onClick={handleBannerClick}
           />
         </div>

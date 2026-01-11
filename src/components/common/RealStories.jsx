@@ -133,11 +133,11 @@ const RealStories = () => {
 
                 {/* Author */}
                 <div className="flex items-center gap-4 mt-auto pt-6 border-t border-gray-100">
-                  <img
+                  {/* <img
                     src={review.image}
                     alt={review.name}
                     className="w-12 h-12 rounded-full object-cover ring-4 ring-gray-50"
-                  />
+                  /> */}
                   <div>
                     <h4 className="font-bold text-gray-900 leading-tight">{review.name}</h4>
                     <span className="text-xs font-semibold text-[#5c2d16] uppercase tracking-wide">{review.role}</span>

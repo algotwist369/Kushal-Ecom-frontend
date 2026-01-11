@@ -87,7 +87,7 @@ const HeroSection = () => {
                 loading="lazy"
                 className="w-full h-full
                        object-contain
-                       md:object-cover
+                       md:object-contain
                        md:w-[1900px]
                        md:h-[650px]
                        mx-auto"

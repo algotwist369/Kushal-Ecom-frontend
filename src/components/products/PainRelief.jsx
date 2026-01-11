@@ -13,7 +13,7 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 
-const SkinCareBeautySection = () => {
+const PainRelief = () => {
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const { isAuthenticated } = useAuth();
@@ -34,11 +34,9 @@ const SkinCareBeautySection = () => {
 
       // Find category that matches "Skin" or "Beauty" (case insensitive)
       const skinCareCategory = categories.find(cat =>
-        cat.name.toLowerCase().includes('skin') ||
-        cat.name.toLowerCase().includes('beauty') ||
-        cat.name.toLowerCase().includes('face') ||
-        cat.name.toLowerCase().includes('skincare') ||
-        cat.name.toLowerCase().includes('cosmetic')
+        cat.name.toLowerCase().includes('joint') ||
+        cat.name.toLowerCase().includes('pain') ||
+        cat.name.toLowerCase().includes('relief')
       );
 
       if (skinCareCategory) {
@@ -116,7 +114,7 @@ const SkinCareBeautySection = () => {
         <div className="max-w-[100rem] mx-auto px-4">
           <div className="mb-6 sm:mb-8">
             <h2 className="text-2xl sm:text-3xl font-bold text-[#5c2d16] mb-2">
-              Skin Care & Beauty
+              Pain Relief
             </h2>
             <p className="text-sm sm:text-base text-gray-600">Natural radiance from within</p>
           </div>
@@ -124,8 +122,8 @@ const SkinCareBeautySection = () => {
           {/* Poster */}
           <div className="mb-6 sm:mb-8 rounded-lg overflow-hidden">
             <img
-              src="/category/buety_care.jpeg"
-              alt="Skin Care & Beauty"
+              src="/category/pain_relief.jpeg"
+              alt="Pain Relief"
               className="w-full h-full md:object-cover object-contain"
             />
           </div>
@@ -154,7 +152,7 @@ const SkinCareBeautySection = () => {
         <div className="max-w-[100rem] mx-auto px-4">
           <div className="mb-6 sm:mb-8">
             <h2 className="text-2xl sm:text-3xl font-bold text-[#5c2d16] mb-2">
-              Skin Care & Beauty
+              Pain Relief
             </h2>
             <p className="text-sm sm:text-base text-gray-600">Natural radiance from within</p>
           </div>
@@ -192,7 +190,7 @@ const SkinCareBeautySection = () => {
       <div className="max-w-[100rem] mx-auto px-4">
         <div className="mb-6 sm:mb-8">
           <h2 className="text-2xl sm:text-3xl font-bold text-[#5c2d16] mb-2">
-            Skin Care & Beauty
+            Pain Relief
           </h2>
           <p className="text-sm sm:text-base text-gray-600">Natural radiance from within</p>
         </div>
@@ -200,8 +198,8 @@ const SkinCareBeautySection = () => {
         {/* Poster Banner */}
         <div className="mb-6 sm:mb-8 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition">
           <img
-            src="/category/buety_care.jpeg"
-            alt="Skin Care & Beauty"
+            src="/category/pain_relief.jpeg"
+            alt="Pain Relief"
             className="w-full h-full object-contain cursor-pointer"
             onClick={handleBannerClick}
           />
@@ -331,4 +329,4 @@ const SkinCareBeautySection = () => {
   );
 };
 
-export default SkinCareBeautySection;
+export default PainRelief;

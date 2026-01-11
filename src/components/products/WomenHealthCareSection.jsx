@@ -125,7 +125,7 @@ const WomenHealthCareSection = () => {
             <img
               src="https://ayurdharaayurvedic.com/wp-content/uploads/2024/07/WhatsApp-Image-2024-07-19-at-10.44.27-AM.jpeg"
               alt="Women Health Care"
-              className="w-full h-48 sm:h-64 md:h-[35rem] object-cover"
+              className="w-full h-ful object-cover"
             />
           </div>
 
@@ -201,7 +201,7 @@ const WomenHealthCareSection = () => {
           <img
             src="https://ayurdharaayurvedic.com/wp-content/uploads/2024/07/WhatsApp-Image-2024-07-19-at-10.44.27-AM.jpeg"
             alt="Women Health Care"
-            className="w-full h-48 sm:h-64 md:h-[35rem] object-cover cursor-pointer"
+            className="w-full h-full object-contain cursor-pointer"
             onClick={handleBannerClick}
           />
         </div>

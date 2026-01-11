@@ -8,7 +8,7 @@ import PopUpModal from "../components/common/PopUpModal";
 const ProductsPage = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const [pagesData, setPagesData] = useState({}); // { [page]: Product[] }
+    const [pagesData, setPagesData] = useState({}); 
     const [loading, setLoading] = useState(true);
     const [minLoadedPage, setMinLoadedPage] = useState(1);
     const [maxLoadedPage, setMaxLoadedPage] = useState(1);
@@ -24,14 +24,12 @@ const ProductsPage = () => {
     // Filter states
     const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
     const [activeSearch, setActiveSearch] = useState(searchParams.get('search') || '');
-    const [selectedCategories, setSelectedCategories] = useState(
-        searchParams.get('category') ? [searchParams.get('category')] : []
-    );
+    const [selectedCategories, setSelectedCategories] = useState([]);
     const [priceRange, setPriceRange] = useState({
         min: searchParams.get('minPrice') || '',
         max: searchParams.get('maxPrice') || ''
     });
-    const [selectedPriceBucket, setSelectedPriceBucket] = useState('');
+    const [selectedPriceBucket, setSelectedPriceBucket] = useState(searchParams.get('priceBucket') || '');
     const [minRating, setMinRating] = useState(searchParams.get('rating') || '');
     const [sortBy, setSortBy] = useState(searchParams.get('sortBy') || 'newest');
     const [showFilters, setShowFilters] = useState(false);
@@ -61,19 +59,60 @@ const ProductsPage = () => {
     }, []);
 
     useEffect(() => {
-        // Update state when URL params change
+        // Update state when URL params change. Category URL param contains slugs;
+        // map slugs to internal IDs once `categories` have been fetched.
         const search = searchParams.get('search') || '';
-        const category = searchParams.get('category') || '';
+        const categoryParam = searchParams.get('category') || '';
+        const priceBucket = searchParams.get('priceBucket') || '';
         setSearchInput(search);
         setActiveSearch(search);
-        setSelectedCategories(category ? [category] : []);
+
+        const slugs = categoryParam ? categoryParam.split(',') : [];
+        if (slugs.length > 0) {
+            if (categories.length > 0) {
+                const ids = slugs.map(s => {
+                    const c = categories.find(cat => cat.slug === s);
+                    return c ? c._id : null;
+                }).filter(Boolean);
+                setSelectedCategories(ids);
+            }
+            // if categories not yet loaded, wait for categories effect to map slugs
+        } else {
+            setSelectedCategories([]);
+        }
+
+        setSelectedPriceBucket(priceBucket);
         // reset pages on param change
         setPagesData({});
         setMinLoadedPage(1);
         setMaxLoadedPage(1);
         setTotalPages(1);
         setTotalProducts(0);
-    }, [searchParams]);
+    }, [searchParams, categories]);
+
+    // Sync filter state -> URL (keeps URL in sync for SEO/shareability)
+    useEffect(() => {
+        const params = {};
+        if (activeSearch) params.search = activeSearch;
+
+        // Write category slugs to URL for readability/SEO
+        if (selectedCategories.length > 0 && categories.length > 0) {
+            const slugs = selectedCategories.map(id => categories.find(c => c._id === id)?.slug).filter(Boolean);
+            if (slugs.length > 0) params.category = slugs.join(',');
+        }
+
+        if (selectedPriceBucket) {
+            params.priceBucket = selectedPriceBucket;
+        } else {
+            if (priceRange.min) params.minPrice = priceRange.min;
+            if (priceRange.max) params.maxPrice = priceRange.max;
+        }
+        if (minRating) params.rating = minRating;
+        if (sortBy && sortBy !== 'newest') params.sortBy = sortBy;
+
+        // Use replace to avoid noisy history while interacting with filters
+        setSearchParams(params, { replace: true });
+    }, [activeSearch, selectedCategories, selectedPriceBucket, priceRange.min, priceRange.max, minRating, sortBy, categories]);
 
     useEffect(() => {
         let isMounted = true;

@@ -7,23 +7,21 @@ const Footer = () => {
   const quickLinks = [
     { name: "Home", link: "/" },
     { name: "Products", link: "/products" },
-    { name: "Categories", link: "/categories" },
     { name: "About Us", link: "/about" },
     { name: "Contact", link: "/contact" },
   ];
 
   const productLinks = [
-    { name: "Ayurvedic Hair Oil", link: "/products/ayurvedic-hair-oil" },
-    { name: "Herbal Face Cream", link: "/products/herbal-face-cream" },
-    { name: "Organic Body Scrub", link: "/products/organic-body-scrub" },
-    { name: "Ayurvedic Tea", link: "/products/ayurvedic-tea" },
+    { name: "Best Hair Growth Oil", link: "/products/gleam-glisten-vata-bhringadi-hair-oil-100ml-strength-to-hair-reduces-hair-fall-promotes-hair-growth" },
+    { name: "Diabetes & Chronic Care", link: "/products/atharva-madhunasini-capsules-control-reduces-blood-sugar-levels-30-caps" },
+    { name: "Beauty Care", link: "/products/glow-more-again-cucumber-aloevera-gel-suitable-for-all-type-of-skin-60gm" },
   ];
 
   const socialLinks = [
-    { icon: <FaFacebookF />, link: "https://facebook.com" },
-    { icon: <FaInstagram />, link: "https://instagram.com" },
-    { icon: <FaTwitter />, link: "https://twitter.com" },
-    { icon: <FaLinkedinIn />, link: "https://linkedin.com" },
+    { icon: <FaFacebookF />, link: "https://www.facebook.com/share/1C8SzAFHn4" },
+    { icon: <FaInstagram />, link: "https://www.instagram.com/prolifichealingherbs" },
+    { icon: <FaTwitter />, link: "https://x.com/prolifichealing" },
+    { icon: <FaLinkedinIn />, link: "https://www.linkedin.com/company/prolific-healing-herbs" },
   ];
 
   return (
@@ -32,13 +30,17 @@ const Footer = () => {
 
         {/* Brand */}
         <div>
-          <img 
-            src={logoUrl} 
-            alt="Prolific Healing Herbs" 
+          <img
+            src={logoUrl}
+            alt="Prolific Healing Herbs"
             className="h-16 w-auto object-contain mb-4 brightness-200"
           />
           <p className="text-gray-400 mb-4">
-            Natural, Ayurvedic, and holistic wellness products for a healthier lifestyle.
+            Prolific Healing Herbs is one of the few facilities which
+            blends modern production technology and advanced
+            quality measures in the area of herbal manufacturing
+            for personal care products and herbal health care
+            medicines.
           </p>
           <div className="flex gap-4">
             {socialLinks.map((social, index) => (
@@ -71,7 +73,7 @@ const Footer = () => {
 
         {/* Products */}
         <div>
-          <h3 className="font-semibold text-lg mb-4">Products</h3>
+          <h3 className="font-semibold text-lg mb-4">Top Selling Products</h3>
           <ul className="space-y-2">
             {productLinks.map((product, index) => (
               <li key={index}>

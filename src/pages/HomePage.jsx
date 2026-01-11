@@ -11,6 +11,9 @@ import WomenHealthCareSection from '../components/products/WomenHealthCareSectio
 import SkinCareBeautySection from '../components/products/SkinCareBeautySection'
 import UnlockOffers from '../components/common/UnlockOffers'
 import PopUpModal from '../components/common/PopUpModal'
+import HairCare from '../components/products/HairCare'
+import DiabetiesCare from '../components/products/DiabetiesCare'
+import PainRelief from '../components/products/PainRelief'
 
 const HomePage = () => {
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -38,6 +41,9 @@ const HomePage = () => {
       <WomenHealthCareSection />
       <MenHealthCareSection />
       <SkinCareBeautySection />
+      <HairCare />
+      <DiabetiesCare />
+      <PainRelief />
       <RealStories />
       <UnlockOffers />
     </div>
