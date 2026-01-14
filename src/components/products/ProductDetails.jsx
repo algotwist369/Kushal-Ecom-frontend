@@ -848,32 +848,66 @@ const ProductDetails = () => {
 
             <div className="bg-white">
                 {/* Breadcrumb */}
-                <div className="border-b">
-                    <div className="max-w-[99rem] mx-auto px-6 py-3">
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <button onClick={() => navigate("/")} className="hover:text-[#5c2d16]">Home</button>
-                            <span>/</span>
-                            <button onClick={() => navigate("/products")} className="hover:text-[#5c2d16]">Products</button>
-                            {(product.categories && product.categories.length > 0) || product.category?.name ? (
+                <div className="border-b bg-white">
+                    <div className="max-w-[99rem] mx-auto px-4 sm:px-6 py-2 sm:py-3">
+                        <nav
+                            className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-gray-600"
+                            aria-label="Breadcrumb"
+                        >
+                            {/* Home */}
+                            <button
+                                onClick={() => navigate("/")}
+                                className="hover:text-[#5c2d16] transition whitespace-nowrap"
+                            >
+                                Home
+                            </button>
+
+                            <span className="text-gray-400">/</span>
+
+                            {/* Products */}
+                            <button
+                                onClick={() => navigate("/products")}
+                                className="hover:text-[#5c2d16] transition whitespace-nowrap"
+                            >
+                                Products
+                            </button>
+
+                            {/* Categories */}
+                            {(product.categories?.length > 0 || product.category?.name) && (
                                 <>
-                                    <span>/</span>
-                                    <div className="flex flex-wrap items-center gap-1">
-                                        {(product.categories && product.categories.length > 0) ? (
+                                    <span className="text-gray-400">/</span>
+
+                                    <div className="flex flex-wrap items-center gap-x-1 gap-y-1 min-w-0">
+                                        {product.categories?.length > 0 ? (
                                             product.categories.map((cat, index) => (
                                                 <React.Fragment key={cat._id || cat}>
-                                                    {index > 0 && <span className="text-gray-400">,</span>}
-                                                    <span className="text-[#5c2d16]">{cat.name || cat}</span>
+                                                    {index > 0 && (
+                                                        <span className="text-gray-400 hidden sm:inline">,</span>
+                                                    )}
+
+                                                    <span
+                                                        className="text-[#5c2d16] font-medium truncate max-w-[120px] sm:max-w-[220px] md:max-w-[320px]"
+                                                        title={cat.name || cat}
+                                                    >
+                                                        {cat.name || cat}
+                                                    </span>
                                                 </React.Fragment>
                                             ))
                                         ) : (
-                                            <span className="text-[#5c2d16]">{product.category.name}</span>
+                                            <span
+                                                className="text-[#5c2d16] font-medium truncate max-w-[140px] sm:max-w-[240px] md:max-w-[360px]"
+                                                title={product.category.name}
+                                            >
+                                                {product.category.name}
+                                            </span>
                                         )}
                                     </div>
                                 </>
-                            ) : null}
-                        </div>
+                            )}
+                        </nav>
                     </div>
                 </div>
+
 
                 <div className="max-w-[99rem] mx-auto px-6 py-8">
                     {/* Back Button */}

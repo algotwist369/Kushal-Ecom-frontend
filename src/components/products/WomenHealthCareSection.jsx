@@ -123,7 +123,7 @@ const WomenHealthCareSection = () => {
           {/* Poster */}
           <div className="mb-6 sm:mb-8 rounded-lg overflow-hidden">
             <img
-              src="https://ayurdharaayurvedic.com/wp-content/uploads/2024/07/WhatsApp-Image-2024-07-19-at-10.44.27-AM.jpeg"
+              src="/category/women_healgth.jpeg"
               alt="Women Health Care"
               className="w-full h-ful object-cover"
             />
@@ -199,7 +199,7 @@ const WomenHealthCareSection = () => {
         {/* Poster Banner */}
         <div className="mb-6 sm:mb-8 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition">
           <img
-            src="https://ayurdharaayurvedic.com/wp-content/uploads/2024/07/WhatsApp-Image-2024-07-19-at-10.44.27-AM.jpeg"
+            src="/category/women_healgth.jpeg"
             alt="Women Health Care"
             className="w-full h-full object-contain cursor-pointer"
             onClick={handleBannerClick}

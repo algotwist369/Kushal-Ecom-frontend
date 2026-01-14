@@ -40,7 +40,7 @@ const GymSpecialCard = ({ product, onAddToCart }) => {
     return (
         <div
             className="group bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition cursor-pointer flex flex-col"
-            style={{ height: '100%', minHeight: '400px' }}
+            style={{ height: '100%', minHeight: '300px' }}
             onClick={handleCardClick}
         >
             {/* Product Image */}

@@ -118,13 +118,13 @@ const SkinCareBeautySection = () => {
             <h2 className="text-2xl sm:text-3xl font-bold text-[#5c2d16] mb-2">
               Skin Care & Beauty
             </h2>
-            <p className="text-sm sm:text-base text-gray-600">Natural radiance from within</p>
+            <p className="text-sm sm:text-base text-gray-600">Skin care and beauty inspired by natural radiance from within.</p>
           </div>
 
           {/* Poster */}
           <div className="mb-6 sm:mb-8 rounded-lg overflow-hidden">
             <img
-              src="/category/buety_care.jpeg"
+              src="/category/bueaty.jpeg"
               alt="Skin Care & Beauty"
               className="w-full h-full md:object-cover object-contain"
             />
@@ -156,7 +156,7 @@ const SkinCareBeautySection = () => {
             <h2 className="text-2xl sm:text-3xl font-bold text-[#5c2d16] mb-2">
               Skin Care & Beauty
             </h2>
-            <p className="text-sm sm:text-base text-gray-600">Natural radiance from within</p>
+            <p className="text-sm sm:text-base text-gray-600">Skin care and beauty inspired by natural radiance from within.</p>
           </div>
           <div className="text-center py-12 sm:py-16 bg-red-50 border-2 border-red-200 rounded-lg px-4">
             <svg className="mx-auto h-16 sm:h-20 w-16 sm:w-20 text-red-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -194,13 +194,13 @@ const SkinCareBeautySection = () => {
           <h2 className="text-2xl sm:text-3xl font-bold text-[#5c2d16] mb-2">
             Skin Care & Beauty
           </h2>
-          <p className="text-sm sm:text-base text-gray-600">Natural radiance from within</p>
+          <p className="text-sm sm:text-base text-gray-600">Skin care and beauty inspired by natural radiance from within.</p>
         </div>
 
         {/* Poster Banner */}
         <div className="mb-6 sm:mb-8 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition">
           <img
-            src="/category/buety_care.jpeg"
+            src="/category/bueaty.jpeg"
             alt="Skin Care & Beauty"
             className="w-full h-full object-contain cursor-pointer"
             onClick={handleBannerClick}

@@ -40,7 +40,7 @@ const BestsellerCard = ({ product, onAddToCart }) => {
     return (
         <div
             className="group bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition cursor-pointer flex flex-col"
-            style={{ height: '100%', minHeight: '400px' }}
+            style={{ height: '100%', minHeight: '300px' }}
             onClick={handleCardClick}
         >
             {/* Product Image */}
@@ -87,9 +87,10 @@ const BestsellerCard = ({ product, onAddToCart }) => {
             </div>
 
             {/* Product Info */}
-            <div className="p-3 sm:p-5 flex-1 flex flex-col">
+            <div className="p-3 sm:p-5 gap-4 flex flex-col">
+
                 {/* Product Name */}
-                <h3 className="font-semibold text-[#5c2d16] mb-2 line-clamp-2 text-sm sm:text-base min-h-[2.5rem] sm:min-h-[3rem] group-hover:text-gray-600 transition">
+                <h3 className="font-semibold text-[#5c2d16] line-clamp-2 text-sm sm:text-base min-h-[2.5rem] sm:min-h-[3rem] group-hover:text-gray-600 transition">
                     {product.name}
                 </h3>
 
@@ -108,16 +109,8 @@ const BestsellerCard = ({ product, onAddToCart }) => {
                     </div>
                 )}
 
-                {/* Total Sold Badge - Bestseller specific */}
-                {product.totalSold && (
-                    <div className="mb-2 sm:mb-3">
-                        <span className="text-xs bg-orange-50 text-orange-600 px-2 py-1 rounded-full font-medium">
-                            {product.totalSold}+ sold
-                        </span>
-                    </div>
-                )}
-
                 <div className="mt-auto">
+
                     {/* Price */}
                     <div className="flex items-baseline gap-1 sm:gap-2 mb-2 sm:mb-3">
                         <span className="text-lg sm:text-2xl font-bold text-[#5c2d16]">
@@ -130,6 +123,13 @@ const BestsellerCard = ({ product, onAddToCart }) => {
                             </span>
                         )}
                     </div>
+
+                    {/* Pack Options */}
+                    {product.packOptions && product.packOptions.length > 0 && (
+                        <p className="text-xs text-gray-600 mb-2 sm:mb-3 hidden sm:block">
+                            Pack options available
+                        </p>
+                    )}
 
                     {/* Add to Cart */}
                     <button
@@ -146,6 +146,7 @@ const BestsellerCard = ({ product, onAddToCart }) => {
                             {isOutOfStock ? 'Out' : 'Add'}
                         </span>
                     </button>
+
                 </div>
             </div>
         </div>

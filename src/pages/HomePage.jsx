@@ -37,13 +37,13 @@ const HomePage = () => {
       </div>
       <BestsellerSection />
       <NewArrivalsSection />
-      <GymSpecialSection />
-      <WomenHealthCareSection />
-      <MenHealthCareSection />
-      <SkinCareBeautySection />
-      <HairCare />
       <DiabetiesCare />
       <PainRelief />
+      <HairCare />
+      <SkinCareBeautySection />
+      <GymSpecialSection />
+      <MenHealthCareSection />
+      <WomenHealthCareSection />
       <RealStories />
       <UnlockOffers />
     </div>

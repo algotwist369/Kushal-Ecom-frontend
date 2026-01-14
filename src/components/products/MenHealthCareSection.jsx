@@ -123,7 +123,7 @@ const MenHealthCareSection = () => {
           {/* Poster */}
           <div className="mb-6 sm:mb-8 rounded-lg overflow-hidden">
             <img
-              src="https://prakrutipureherbs.com/cdn/shop/files/ayurvedic_medicine_for_male_wellness.webp?v=1743403969&width=3840"
+              src="/category/man_health.jpeg"
               alt="Men Health Care"
               className="w-full h-48 sm:h-64 md:h-[35rem] object-cover"
             />
@@ -199,9 +199,9 @@ const MenHealthCareSection = () => {
         {/* Poster Banner */}
         <div className="mb-6 sm:mb-8 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition">
           <img
-            src="https://prakrutipureherbs.com/cdn/shop/files/ayurvedic_medicine_for_male_wellness.webp?v=1743403969&width=3840"
+            src="/category/man_health.jpeg"
             alt="Men Health Care"
-            className="w-full h-48 sm:h-64 md:h-[35rem] object-cover cursor-pointer"
+            className="w-full h-full object-contain cursor-pointer"
             onClick={handleBannerClick}
           />
         </div>

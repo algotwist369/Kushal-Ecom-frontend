@@ -40,7 +40,7 @@ const CategoryCard = ({ product, onAddToCart }) => {
     return (
         <div
             className="group bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition cursor-pointer flex flex-col"
-            style={{ height: '100%', minHeight: '400px' }}
+            style={{ height: '100%', minHeight: '300px' }}
             onClick={handleCardClick}
         >
             {/* Product Image */}
@@ -87,58 +87,68 @@ const CategoryCard = ({ product, onAddToCart }) => {
             </div>
 
             {/* Product Info */}
-            <div className="p-3 sm:p-5 flex-1 flex flex-col">
-                {/* Product Name */}
-                <h3 className="font-semibold text-[#5c2d16] mb-2 line-clamp-2 text-sm sm:text-base min-h-[2.5rem] sm:min-h-[3rem] group-hover:text-gray-600 transition">
-                    {product.name}
-                </h3>
-
-                {/* Rating */}
-                {product.averageRating > 0 && (
-                    <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-3">
-                        <div className="flex items-center gap-0.5 sm:gap-1">
-                            <FaStar className="text-yellow-400 text-xs sm:text-sm" />
-                            <span className="text-xs sm:text-sm font-medium text-[#5c2d16]">
-                                {product.averageRating.toFixed(1)}
-                            </span>
-                        </div>
-                        <span className="text-xs text-gray-500">
-                            ({product.numReviews || 0})
-                        </span>
-                    </div>
-                )}
-
-                <div className="mt-auto">
-                    {/* Price */}
-                    <div className="flex items-baseline gap-1 sm:gap-2 mb-2 sm:mb-3">
-                        <span className="text-lg sm:text-2xl font-bold text-[#5c2d16]">
-                            ₹{displayPrice}
-                        </span>
-
-                        {hasDiscount && (
-                            <span className="text-xs sm:text-sm text-gray-400 line-through">
-                                ₹{product.price}
-                            </span>
-                        )}
-                    </div>
-
-                    {/* Add to Cart */}
-                    <button
-                        className="w-full bg-[#5c2d16] text-white py-2 sm:py-3 rounded-lg hover:bg-gray-800 transition font-medium disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-1 sm:gap-2 text-sm sm:text-base"
-                        disabled={isOutOfStock}
-                        onClick={handleAddToCartClick}
-                        aria-label={isOutOfStock ? 'Out of stock' : `Add ${product.name} to cart`}
-                    >
-                        <BsCartPlus className="text-base sm:text-lg" />
-                        <span className="hidden sm:inline">
-                            {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
-                        </span>
-                        <span className="sm:hidden">
-                            {isOutOfStock ? 'Out' : 'Add'}
-                        </span>
-                    </button>
-                </div>
-            </div>
+            <div className="p-3 sm:p-5 gap-4 flex flex-col">
+           
+                           {/* Product Name */}
+                           <h3 className="font-semibold text-[#5c2d16] line-clamp-2 text-sm sm:text-base min-h-[2.5rem] sm:min-h-[3rem] group-hover:text-gray-600 transition">
+                               {product.name}
+                           </h3>
+           
+                           {/* Rating */}
+                           {product.averageRating > 0 && (
+                               <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-3">
+                                   <div className="flex items-center gap-0.5 sm:gap-1">
+                                       <FaStar className="text-yellow-400 text-xs sm:text-sm" />
+                                       <span className="text-xs sm:text-sm font-medium text-[#5c2d16]">
+                                           {product.averageRating.toFixed(1)}
+                                       </span>
+                                   </div>
+                                   <span className="text-xs text-gray-500">
+                                       ({product.numReviews || 0})
+                                   </span>
+                               </div>
+                           )}
+           
+                           <div className="mt-auto">
+           
+                               {/* Price */}
+                               <div className="flex items-baseline gap-1 sm:gap-2 mb-2 sm:mb-3">
+                                   <span className="text-lg sm:text-2xl font-bold text-[#5c2d16]">
+                                       ₹{displayPrice}
+                                   </span>
+           
+                                   {hasDiscount && (
+                                       <span className="text-xs sm:text-sm text-gray-400 line-through">
+                                           ₹{product.price}
+                                       </span>
+                                   )}
+                               </div>
+           
+                               {/* Pack Options */}
+                               {product.packOptions && product.packOptions.length > 0 && (
+                                   <p className="text-xs text-gray-600 mb-2 sm:mb-3 hidden sm:block">
+                                       Pack options available
+                                   </p>
+                               )}
+           
+                               {/* Add to Cart */}
+                               <button
+                                   className="w-full bg-[#5c2d16] text-white py-2 sm:py-3 rounded-lg hover:bg-gray-800 transition font-medium disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-1 sm:gap-2 text-sm sm:text-base"
+                                   disabled={isOutOfStock}
+                                   onClick={handleAddToCartClick}
+                                   aria-label={isOutOfStock ? 'Out of stock' : `Add ${product.name} to cart`}
+                               >
+                                   <BsCartPlus className="text-base sm:text-lg" />
+                                   <span className="hidden sm:inline">
+                                       {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
+                                   </span>
+                                   <span className="sm:hidden">
+                                       {isOutOfStock ? 'Out' : 'Add'}
+                                   </span>
+                               </button>
+           
+                           </div>
+                       </div>
         </div>
     );
 };
