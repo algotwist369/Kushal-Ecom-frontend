@@ -36,7 +36,8 @@ const PainRelief = () => {
       const skinCareCategory = categories.find(cat =>
         cat.name.toLowerCase().includes('joint') ||
         cat.name.toLowerCase().includes('pain') ||
-        cat.name.toLowerCase().includes('relief')
+        cat.name.toLowerCase().includes('relief') ||
+        cat.name.toLowerCase().includes('Joint Pain Relief')
       );
 
       if (skinCareCategory) {
@@ -114,16 +115,16 @@ const PainRelief = () => {
         <div className="max-w-[100rem] mx-auto px-4">
           <div className="mb-6 sm:mb-8">
             <h2 className="text-2xl sm:text-3xl font-bold text-[#5c2d16] mb-2">
-              Pain Relief
+              Joint Pain Relief
             </h2>
-            <p className="text-sm sm:text-base text-gray-600">Pain relief that restores natural radiance from within.</p>
+            <p className="text-sm sm:text-base text-gray-600">Joint Pain Relief that restores natural radiance from within.</p>
           </div>
 
           {/* Poster */}
           <div className="mb-6 sm:mb-8 rounded-lg overflow-hidden">
             <img
               src="/category/pain_relief.jpeg"
-              alt="Pain Relief"
+              alt="Joint Pain Relief"
               className="w-full h-full md:object-cover object-contain"
             />
           </div>
@@ -152,9 +153,9 @@ const PainRelief = () => {
         <div className="max-w-[100rem] mx-auto px-4">
           <div className="mb-6 sm:mb-8">
             <h2 className="text-2xl sm:text-3xl font-bold text-[#5c2d16] mb-2">
-              Pain Relief
+              Joint Pain Relief
             </h2>
-            <p className="text-sm sm:text-base text-gray-600">Pain relief that restores natural radiance from within.</p>
+            <p className="text-sm sm:text-base text-gray-600">Joint Pain Relief that restores natural radiance from within.</p>
           </div>
           <div className="text-center py-12 sm:py-16 bg-red-50 border-2 border-red-200 rounded-lg px-4">
             <svg className="mx-auto h-16 sm:h-20 w-16 sm:w-20 text-red-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -190,16 +191,16 @@ const PainRelief = () => {
       <div className="max-w-[100rem] mx-auto px-4">
         <div className="mb-6 sm:mb-8">
           <h2 className="text-2xl sm:text-3xl font-bold text-[#5c2d16] mb-2">
-            Pain Relief
+            Joint Pain Relief
           </h2>
-          <p className="text-sm sm:text-base text-gray-600">Pain relief that restores natural radiance from within.</p>
+          <p className="text-sm sm:text-base text-gray-600">Joint Pain Relief that restores natural radiance from within.</p>
         </div>
 
         {/* Poster Banner */}
         <div className="mb-6 sm:mb-8 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition">
           <img
             src="/category/pain_relief.jpeg"
-            alt="Pain Relief"
+            alt="Joint Pain Relief"
             className="w-full h-full object-contain cursor-pointer"
             onClick={handleBannerClick}
           />
@@ -270,16 +271,16 @@ const PainRelief = () => {
         </div>
 
         {/* View All Button */}
-        {categoryId && (
+        {/* {categoryId && (
           <div className="mt-6 sm:mt-8 flex justify-center">
             <button
               onClick={handleBannerClick}
               className="bg-[#5c2d16] text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg hover:bg-gray-800 transition font-semibold text-sm sm:text-base"
             >
-              View All Skin Care Products →
+              View Joint Pain Relief Products →
             </button>
           </div>
-        )}
+        )} */}
       </div>
 
       <style dangerouslySetInnerHTML={{

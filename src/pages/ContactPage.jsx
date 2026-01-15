@@ -69,13 +69,13 @@ const ContactPage = () => {
                         {/* Back Button */}
                         <button
                             onClick={() => navigate('/')}
-                            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition group"
+                            className="flex items-center gap-2 text-gray-600 hover:text-[#5c2d16] mb-6 transition group"
                         >
                             <BsChevronLeft className="text-xl group-hover:-translate-x-1 transition-transform" />
                             <span className="font-medium">Back to Home</span>
                         </button>
 
-                        <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">Contact Us</h1>
+                        <h1 className="text-4xl sm:text-5xl font-bold text-[#5c2d16] mb-4">Contact Us</h1>
                         <p className="text-lg text-gray-600 max-w-3xl">
                             Have questions? We'd love to hear from you. Send us a message and we'll respond as soon as possible.
                         </p>
@@ -90,12 +90,12 @@ const ContactPage = () => {
                             {/* Email */}
                             <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition">
                                 <div className="flex items-start gap-4">
-                                    <div className="flex-shrink-0 w-12 h-12 bg-gray-900 text-white rounded-lg flex items-center justify-center">
+                                    <div className="flex-shrink-0 w-12 h-12 bg-[#5c2d16] text-white rounded-lg flex items-center justify-center">
                                         <BsEnvelope className="text-xl" />
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-gray-900 mb-2">Email</h3>
-                                        <p className="text-gray-600 text-sm">info@prolifichealingherbs.com</p>
+                                        <h3 className="font-bold text-[#5c2d16] mb-2">Email</h3>
+                                        <p className="text-gray-600 text-sm">connect@prolifichealingherbs.com</p>
                                         <p className="text-gray-600 text-sm"></p>
                                     </div>
                                 </div>
@@ -104,11 +104,11 @@ const ContactPage = () => {
                             {/* Phone */}
                             <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition">
                                 <div className="flex items-start gap-4">
-                                    <div className="flex-shrink-0 w-12 h-12 bg-gray-900 text-white rounded-lg flex items-center justify-center">
+                                    <div className="flex-shrink-0 w-12 h-12 bg-[#5c2d16] text-white rounded-lg flex items-center justify-center">
                                         <BsPhone className="text-xl" />
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-gray-900 mb-2">Phone</h3>
+                                        <h3 className="font-bold text-[#5c2d16] mb-2">Phone</h3>
                                         <p className="text-gray-600 text-sm">+91 8291122444</p>
                                     </div>
                                 </div>
@@ -117,11 +117,11 @@ const ContactPage = () => {
                             {/* Address */}
                             <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition">
                                 <div className="flex items-start gap-4">
-                                    <div className="flex-shrink-0 w-12 h-12 bg-gray-900 text-white rounded-lg flex items-center justify-center">
+                                    <div className="flex-shrink-0 w-12 h-12 bg-[#5c2d16] text-white rounded-lg flex items-center justify-center">
                                         <BsGeoAlt className="text-xl" />
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-gray-900 mb-2">Address</h3>
+                                        <h3 className="font-bold text-[#5c2d16] mb-2">Address</h3>
                                         <p className="text-gray-600 text-sm">
                                             Office No.15, Yashovardhan C.H.S. Ltd, Plot No. 35, Sector 8, Sanpada, Navi Mumbai, Maharashtra 400705
                                         </p>
@@ -132,13 +132,13 @@ const ContactPage = () => {
                             {/* Hours */}
                             <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition">
                                 <div className="flex items-start gap-4">
-                                    <div className="flex-shrink-0 w-12 h-12 bg-gray-900 text-white rounded-lg flex items-center justify-center">
+                                    <div className="flex-shrink-0 w-12 h-12 bg-[#5c2d16] text-white rounded-lg flex items-center justify-center">
                                         <BsClock className="text-xl" />
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-gray-900 mb-2">Business Hours</h3>
+                                        <h3 className="font-bold text-[#5c2d16] mb-2">Business Hours</h3>
                                         <p className="text-gray-600 text-sm">Monday - Saturday: 9:00 AM - 7:00 PM</p>
-                                        <p className="text-gray-600 text-sm">Sunday: 10:00 AM - 5:00 PM</p>
+                                        {/* <p className="text-gray-600 text-sm">Sunday: 10:00 AM - 5:00 PM</p> */}
                                     </div>
                                 </div>
                             </div>
@@ -147,12 +147,12 @@ const ContactPage = () => {
                         {/* Contact Form */}
                         <div className="lg:col-span-2">
                             <div className="bg-white border border-gray-200 rounded-lg p-6 sm:p-8">
-                                <h2 className="text-2xl font-bold text-gray-900 mb-6">Send Us a Message</h2>
+                                <h2 className="text-2xl font-bold text-[#5c2d16] mb-6">Send Us a Message</h2>
 
                                 <form onSubmit={handleSubmit} className="space-y-6">
                                     {/* Name */}
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-900 mb-2">
+                                        <label className="block text-sm font-medium text-[#5c2d16] mb-2">
                                             Full Name <span className="text-red-500">*</span>
                                         </label>
                                         <input
@@ -161,7 +161,7 @@ const ContactPage = () => {
                                             value={formData.name}
                                             onChange={handleChange}
                                             placeholder="Your name"
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5c2d16] focus:border-transparent"
                                             required
                                             disabled={loading}
                                         />
@@ -170,7 +170,7 @@ const ContactPage = () => {
                                     {/* Email & Phone */}
                                     <div className="grid sm:grid-cols-2 gap-6">
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-900 mb-2">
+                                            <label className="block text-sm font-medium text-[#5c2d16] mb-2">
                                                 Email <span className="text-red-500">*</span>
                                             </label>
                                             <input
@@ -179,14 +179,14 @@ const ContactPage = () => {
                                                 value={formData.email}
                                                 onChange={handleChange}
                                                 placeholder="your@email.com"
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5c2d16] focus:border-transparent"
                                                 required
                                                 disabled={loading}
                                             />
                                         </div>
 
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-900 mb-2">
+                                            <label className="block text-sm font-medium text-[#5c2d16] mb-2">
                                                 Phone <span className="text-red-500">*</span>
                                             </label>
                                             <input
@@ -195,7 +195,7 @@ const ContactPage = () => {
                                                 value={formData.phone}
                                                 onChange={handleChange}
                                                 placeholder="10-digit mobile number"
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5c2d16] focus:border-transparent"
                                                 required
                                                 disabled={loading}
                                                 maxLength="10"
@@ -205,7 +205,7 @@ const ContactPage = () => {
 
                                     {/* Subject */}
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-900 mb-2">
+                                        <label className="block text-sm font-medium text-[#5c2d16] mb-2">
                                             Subject <span className="text-red-500">*</span>
                                         </label>
                                         <input
@@ -214,7 +214,7 @@ const ContactPage = () => {
                                             value={formData.subject}
                                             onChange={handleChange}
                                             placeholder="How can we help you?"
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5c2d16] focus:border-transparent"
                                             required
                                             disabled={loading}
                                         />
@@ -222,7 +222,7 @@ const ContactPage = () => {
 
                                     {/* Message */}
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-900 mb-2">
+                                        <label className="block text-sm font-medium text-[#5c2d16] mb-2">
                                             Message <span className="text-red-500">*</span>
                                         </label>
                                         <textarea
@@ -231,7 +231,7 @@ const ContactPage = () => {
                                             onChange={handleChange}
                                             placeholder="Tell us more about your inquiry..."
                                             rows="6"
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5c2d16] focus:border-transparent resize-none"
                                             required
                                             disabled={loading}
                                         />
@@ -241,7 +241,7 @@ const ContactPage = () => {
                                     <button
                                         type="submit"
                                         disabled={loading}
-                                        className="w-full bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-800 transition font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                        className="w-full bg-[#5c2d16] text-white py-3 rounded-lg hover:bg-gray-800 transition font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed"
                                     >
                                         {loading ? 'Sending...' : 'Send Message'}
                                     </button>
@@ -251,25 +251,25 @@ const ContactPage = () => {
                     </div>
 
                     {/* Map Section */}
-                    <div className="mb-12">
-                        <h2 className="text-3xl font-bold text-gray-900 mb-6 text-center">Visit Our Store</h2>
+                    <div className="hidden mb-12">
+                        <h2 className="text-3xl font-bold text-[#5c2d16] mb-6 text-center">
+                            Visit Our Store
+                        </h2>
+
                         <div className="rounded-lg overflow-hidden border border-gray-200 shadow-md h-96">
                             <iframe
-                                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3502.2087607412815!2d77.20902931508044!3d28.61393948241957!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390cfd371c7ab4a1%3A0x1a6de00c39e0e29e!2sConnaught%20Place%2C%20New%20Delhi%2C%20Delhi!5e0!3m2!1sen!2sin!4v1645123456789!5m2!1sen!2sin"
-                                width="100%"
-                                height="100%"
+                                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d4679.419252979586!2d73.009407!3d19.062307999999998!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3be7c1a0b3dd1b11%3A0xc8190495634756bb!2sProlific%20Healing%20Herbs!5e1!3m2!1sen!2sin!4v1768481231180!5m2!1sen!2sin"
+                                className="w-full h-full"
                                 style={{ border: 0 }}
-                                allowFullScreen=""
-                                loading="lazy"
-                                referrerPolicy="no-referrer-when-downgrade"
                                 title="Store Location"
-                            ></iframe>
+                            />
                         </div>
                     </div>
 
+
                     {/* FAQ Section */}
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 sm:p-12">
-                        <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">Frequently Asked Questions</h2>
+                        <h2 className="text-3xl font-bold text-[#5c2d16] mb-8 text-center">Frequently Asked Questions</h2>
                         <div className="space-y-6 max-w-3xl mx-auto">
                             {[
                                 {
@@ -290,7 +290,7 @@ const ContactPage = () => {
                                 }
                             ].map((faq, idx) => (
                                 <div key={idx} className="border-b border-gray-200 pb-6 last:border-b-0">
-                                    <h3 className="font-bold text-gray-900 mb-2 text-lg">{faq.question}</h3>
+                                    <h3 className="font-bold text-[#5c2d16] mb-2 text-lg">{faq.question}</h3>
                                     <p className="text-gray-600">{faq.answer}</p>
                                 </div>
                             ))}
@@ -300,7 +300,7 @@ const ContactPage = () => {
                             <p className="text-gray-600 mb-4">Still have questions?</p>
                             <a
                                 href="mailto:"
-                                className="inline-block bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition font-semibold"
+                                className="inline-block bg-[#5c2d16] text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition font-semibold"
                             >
                                 Email Us Directly
                             </a>

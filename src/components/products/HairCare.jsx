@@ -269,16 +269,16 @@ const HairCare = () => {
         </div>
 
         {/* View All Button */}
-        {categoryId && (
+        {/* {categoryId && (
           <div className="mt-6 sm:mt-8 flex justify-center">
             <button
               onClick={handleBannerClick}
               className="bg-[#5c2d16] text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg hover:bg-gray-800 transition font-semibold text-sm sm:text-base"
             >
-              View All Skin Care Products →
+              View Hair Care & Hair Growth Products →
             </button>
           </div>
-        )}
+        )} */}
       </div>
 
       <style dangerouslySetInnerHTML={{

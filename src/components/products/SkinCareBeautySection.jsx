@@ -272,7 +272,7 @@ const SkinCareBeautySection = () => {
         </div>
 
         {/* View All Button */}
-        {categoryId && (
+        {/* {categoryId && (
           <div className="mt-6 sm:mt-8 flex justify-center">
             <button
               onClick={handleBannerClick}
@@ -281,7 +281,7 @@ const SkinCareBeautySection = () => {
               View All Skin Care Products →
             </button>
           </div>
-        )}
+        )} */}
       </div>
 
       <style dangerouslySetInnerHTML={{

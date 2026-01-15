@@ -271,7 +271,7 @@ const MenHealthCareSection = () => {
         </div>
 
         {/* View All Button */}
-        {categoryId && (
+        {/* {categoryId && (
           <div className="mt-6 sm:mt-8 flex justify-center">
             <button
               onClick={handleBannerClick}
@@ -280,7 +280,7 @@ const MenHealthCareSection = () => {
               View All Men Health Products →
             </button>
           </div>
-        )}
+        )} */}
       </div>
 
       <style dangerouslySetInnerHTML={{
