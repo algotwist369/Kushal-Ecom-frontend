@@ -36,7 +36,9 @@ const GymSpecialSection = () => {
       const gymCategory = categories.find(cat =>
         cat.name.toLowerCase().includes('gym') ||
         cat.name.toLowerCase().includes('fitness') ||
-        cat.name.toLowerCase().includes('workout')
+        cat.name.toLowerCase().includes('workout') ||
+        cat.name.toLowerCase().includes('dietary supplement') ||
+        cat.name.toLowerCase().includes('supplement')
       );
 
       if (gymCategory) {
@@ -110,6 +112,9 @@ const GymSpecialSection = () => {
   const handleBannerClick = useCallback(() => {
     if (categoryId) {
       navigate(`/products?category=${categoryId}`);
+    } else {
+      // Fallback if category ID not found
+      navigate('/products?search=gym');
     }
   }, [categoryId, navigate]);
 
@@ -130,7 +135,8 @@ const GymSpecialSection = () => {
             <img
               src="/category/gym.jpeg"
               alt="Special for Gym Enthusiasts"
-              className="w-full h-full sm:h-64 md:h-80 object-cover"
+              className="w-full h-full sm:h-64 md:h-80 object-cover cursor-pointer"
+              onClick={handleBannerClick}
             />
           </div>
 

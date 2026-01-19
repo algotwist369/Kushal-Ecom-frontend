@@ -126,7 +126,8 @@ const SkinCareBeautySection = () => {
             <img
               src="/category/bueaty.jpeg"
               alt="Skin Care & Beauty"
-              className="w-full h-full md:object-cover object-contain"
+              className="w-full h-full md:object-cover object-contain cursor-pointer"
+              onClick={handleBannerClick}
             />
           </div>
 

@@ -8,6 +8,7 @@ import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../hooks/useAuth";
 import toast from "react-hot-toast";
 import PopUpModal from "../common/PopUpModal";
+import { MdLocalOffer } from "react-icons/md";
 
 // Safe toast wrapper to prevent undefined/null values that cause indexOf errors
 const safeToast = {
@@ -376,7 +377,19 @@ const ProductDetails = () => {
     const [phoneNumber, setPhoneNumber] = useState('');
     const [claimedCoupon, setClaimedCoupon] = useState(null);
     const [claimingCoupon, setClaimingCoupon] = useState(false);
+    const [showCouponModal, setShowCouponModal] = useState(false);
     const [activeCoupons, setActiveCoupons] = useState([]);
+
+    // Auto-open coupon modal when coupons are loaded and not yet claimed
+    useEffect(() => {
+        if (activeCoupons.length > 0 && !claimedCoupon) {
+            // Small delay to be less intrusive
+            const timer = setTimeout(() => {
+                setShowCouponModal(true);
+            }, 1500);
+            return () => clearTimeout(timer);
+        }
+    }, [activeCoupons, claimedCoupon]);
     const [couponError, setCouponError] = useState('');
     const [phoneValidation, setPhoneValidation] = useState({ isValid: false, message: '' });
 
@@ -1206,12 +1219,50 @@ const ProductDetails = () => {
                         </div>
                     </div>
 
-                    {/* Coupon Claim Section */}
+                    {/* Coupon Trigger Button (Small) */}
                     {activeCoupons.length > 0 && (
-                        <div className="mb-12">
-                            <div className="border border-gray-200 rounded-lg p-8 bg-white">
-                                <div className="max-w-2xl mx-auto">
+                        <div className="mb-6">
+                            <button
+                                onClick={() => setShowCouponModal(true)}
+                                className="w-full bg-gradient-to-r from-yellow-50 to-orange-50 border border-orange-200 text-[#5c2d16] px-4 py-3 rounded-lg flex items-center justify-between hover:from-yellow-100 hover:to-orange-100 transition shadow-sm group"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform">
+                                        <MdLocalOffer className="text-lg" />
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="font-bold text-sm sm:text-base">
+                                            Get Extra {activeCoupons[0]?.discountType === 'percentage'
+                                                ? `${activeCoupons[0]?.discountValue}% OFF`
+                                                : `₹${activeCoupons[0]?.discountValue} OFF`}
+                                        </p>
+                                        <p className="text-xs text-gray-600">Click to claim your coupon</p>
+                                    </div>
+                                </div>
+                                <BsChevronRight className="text-gray-400 group-hover:text-[#5c2d16] transition-colors" />
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Coupon Modal */}
+                    {activeCoupons.length > 0 && showCouponModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                            <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl relative animate-in zoom-in-95 duration-200 overflow-hidden">
+                                {/* Close Button */}
+                                <button
+                                    onClick={() => setShowCouponModal(false)}
+                                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition p-1 hover:bg-gray-100 rounded-full z-10"
+                                >
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+
+                                <div className="p-8">
                                     <div className="text-center mb-8">
+                                        <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4 text-orange-600">
+                                            <MdLocalOffer className="text-3xl" />
+                                        </div>
                                         <h2 className="text-2xl font-bold text-[#5c2d16] mb-2">
                                             Get Extra {activeCoupons[0]?.discountType === 'percentage'
                                                 ? `${activeCoupons[0]?.discountValue}% OFF`
@@ -1285,16 +1336,16 @@ const ProductDetails = () => {
                                             </button>
                                         </form>
                                     ) : (
-                                        <div className="border-2 border-[#5c2d16] rounded-lg p-8">
+                                        <div className="border-2 border-[#5c2d16] rounded-lg p-6 bg-orange-50/30">
                                             <div className="text-center space-y-4">
-                                                <div className="inline-flex items-center justify-center w-16 h-16 bg-[#5c2d16] text-white rounded-full text-2xl mb-2">
+                                                <div className="inline-flex items-center justify-center w-12 h-12 bg-green-100 text-green-600 rounded-full text-xl mb-1">
                                                     ✓
                                                 </div>
-                                                <h3 className="text-xl font-bold text-[#5c2d16]">
-                                                    Your Coupon Code
+                                                <h3 className="text-lg font-bold text-[#5c2d16]">
+                                                    Here is your Coupon Code!
                                                 </h3>
                                                 <div
-                                                    className="inline-block border-2 border-[#5c2d16] rounded-lg px-8 py-4 bg-gray-50 cursor-pointer hover:bg-gray-100 transition"
+                                                    className="inline-block border-2 border-dashed border-[#5c2d16] rounded-lg px-6 py-3 bg-white cursor-pointer hover:bg-gray-50 transition w-full"
                                                     onClick={async () => {
                                                         try {
                                                             if (claimedCoupon?.code) {
@@ -1307,52 +1358,35 @@ const ProductDetails = () => {
                                                     }}
                                                     title="Click to copy"
                                                 >
-                                                    <p className="text-3xl font-bold text-[#5c2d16] tracking-wider font-mono">
+                                                    <p className="text-2xl font-bold text-[#5c2d16] tracking-wider font-mono">
                                                         {claimedCoupon.code}
                                                     </p>
-                                                    <p className="text-xs text-gray-500 mt-2">Click to copy</p>
+                                                    <div className="flex items-center justify-center gap-1 mt-1 text-xs text-gray-500">
+                                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                        </svg>
+                                                        Tap to copy
+                                                    </div>
                                                 </div>
-                                                <div className="pt-4 space-y-2">
-                                                    <p className="text-lg font-semibold text-[#5c2d16]">
-                                                        {claimedCoupon.discountType === 'percentage'
-                                                            ? `Get ${claimedCoupon.discountValue}% OFF`
-                                                            : `Get ₹${claimedCoupon.discountValue} OFF`}
-                                                    </p>
-                                                    <p className="text-sm text-gray-600">
+                                                <div className="pt-2 space-y-1">
+                                                    <p className="text-sm font-medium text-gray-700">
                                                         {claimedCoupon.description}
                                                     </p>
                                                     {claimedCoupon.minPurchaseAmount > 0 && (
-                                                        <p className="text-sm text-gray-600">
-                                                            Minimum purchase: ₹{claimedCoupon.minPurchaseAmount}
+                                                        <p className="text-xs text-gray-500">
+                                                            Min purchase: ₹{claimedCoupon.minPurchaseAmount}
                                                         </p>
                                                     )}
-                                                    <p className="text-xs text-gray-500 pt-2">
-                                                        Valid until: {new Date(claimedCoupon.validUntil).toLocaleDateString('en-IN', {
-                                                            day: 'numeric',
-                                                            month: 'long',
-                                                            year: 'numeric'
-                                                        })}
-                                                    </p>
                                                 </div>
-                                                <div className="pt-4 border-t border-gray-200">
-                                                    <p className="text-sm text-gray-700 font-medium mb-3">
-                                                        Copy this code and apply it at checkout
-                                                    </p>
+                                                <div className="pt-4 mt-2 border-t border-dashed border-gray-300">
                                                     <button
-                                                        onClick={async () => {
-                                                            try {
-                                                                if (claimedCoupon?.code) {
-                                                                    await navigator.clipboard.writeText(String(claimedCoupon.code));
-                                                                    safeToast.success('Copied to clipboard!');
-                                                                }
-                                                            } catch (err) {
-                                                                // Fallback if clipboard API fails
-                                                                safeToast.error('Failed to copy coupon code');
-                                                            }
+                                                        onClick={() => {
+                                                            setShowCouponModal(false);
+                                                            safeToast.success("Coupon saved! Apply at checkout.");
                                                         }}
-                                                        className="bg-[#5c2d16] text-white px-6 py-2 rounded-lg hover:bg-gray-800 transition text-sm font-medium"
+                                                        className="w-full bg-[#5c2d16] text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition text-sm font-medium"
                                                     >
-                                                        Copy Code
+                                                        Continue Shopping
                                                     </button>
                                                 </div>
                                             </div>
@@ -1980,7 +2014,7 @@ const ProductDetails = () => {
 
                                     {/* Reviews List */}
                                     {product.reviews && product.reviews.length > 0 ? (
-                                        <div className="mb-8">
+                                        <div className="mb-8 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                                             {product.reviews.map(review => (
                                                 <ReviewCard
                                                     key={review._id}

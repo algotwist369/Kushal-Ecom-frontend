@@ -125,7 +125,8 @@ const WomenHealthCareSection = () => {
             <img
               src="/category/women_healgth.jpeg"
               alt="Women Health Care"
-              className="w-full h-ful object-cover"
+              className="w-full h-ful object-cover cursor-pointer"
+              onClick={handleBannerClick}
             />
           </div>
 
