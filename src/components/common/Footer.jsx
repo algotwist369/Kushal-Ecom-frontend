@@ -15,6 +15,8 @@ const footerSections = [
       { name: "Home", link: "/" },
       { name: "Products", link: "/products" },
       { name: "About Us", link: "/about" },
+      { name: "Refund Policy", link: "/refund-policy" },
+      { name: "Privacy Policy", link: "/privacy-policy" },
       { name: "Contact", link: "/contact" },
     ],
   },

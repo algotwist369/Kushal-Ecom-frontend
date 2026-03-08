@@ -109,6 +109,12 @@ const AdminCoupons = () => {
                             <LuRefreshCcw className="text-2xl" />
                         </button>
                         <button
+                            onClick={() => navigate('/admin/coupons/claims')}
+                            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                        >
+                            View Claims
+                        </button>
+                        <button
                             onClick={() => navigate('/admin/coupons/create')}
                             className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold"
                         >

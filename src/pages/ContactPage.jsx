@@ -4,6 +4,7 @@ import { BsChevronLeft, BsEnvelope, BsPhone, BsGeoAlt, BsClock } from 'react-ico
 import toast from 'react-hot-toast';
 import PopUpModal from '../components/common/PopUpModal';
 import api from '../api/axiosConfig';
+import SEO from '../components/common/SEO';
 
 const ContactPage = () => {
     const navigate = useNavigate();
@@ -61,6 +62,11 @@ const ContactPage = () => {
 
     return (
         <>
+            <SEO 
+                title="Contact Us"
+                description="Get in touch with Prolific Healing Herbs. We are here to answer your questions about our natural herbal products and Ayurvedic wellness."
+                keywords={['Contact Prolific Healing Herbs', 'Herbal Support', 'Ayurvedic Consultation Navi Mumbai']}
+            />
             <PopUpModal />
             <div className="bg-white min-h-screen">
                 {/* Hero Section */}

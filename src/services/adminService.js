@@ -446,6 +446,21 @@ export const updateCoupon = async (couponId, couponData) => {
     }
 };
 
+export const getCouponClaims = async (params = {}) => {
+    try {
+        const response = await api.get('/coupons/claims/all', { params });
+        return {
+            success: true,
+            data: response.data
+        };
+    } catch (error) {
+        return {
+            success: false,
+            message: error.response?.data?.message || 'Failed to fetch coupon claims'
+        };
+    }
+};
+
 export const deleteCoupon = async (couponId) => {
     try {
         const response = await api.delete(`/coupons/${couponId}`);

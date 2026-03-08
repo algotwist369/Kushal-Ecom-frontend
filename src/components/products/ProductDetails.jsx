@@ -8,6 +8,7 @@ import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../hooks/useAuth";
 import toast from "react-hot-toast";
 import PopUpModal from "../common/PopUpModal";
+import SEO from "../common/SEO";
 import { MdLocalOffer } from "react-icons/md";
 
 // Safe toast wrapper to prevent undefined/null values that cause indexOf errors
@@ -785,6 +786,35 @@ const ProductDetails = () => {
         }
         return 0;
     }, [product, selectedPack]);
+    
+    // Schema.org Structured Data for Product
+    const productSchema = useMemo(() => {
+        if (!product) return null;
+        return {
+            "@context": "https://schema.org/",
+            "@type": "Product",
+            "name": product.name,
+            "image": product.images || [],
+            "description": product.description || product.metaDescription,
+            "sku": product._id,
+            "brand": {
+                "@type": "Brand",
+                "name": "Prolific Healing Herbs"
+            },
+            "offers": {
+                "@type": "Offer",
+                "url": window.location.href,
+                "priceCurrency": "INR",
+                "price": product.discountPrice || product.price,
+                "availability": product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock"
+            },
+            "aggregateRating": product.numReviews > 0 ? {
+                "@type": "AggregateRating",
+                "ratingValue": product.averageRating,
+                "reviewCount": product.numReviews
+            } : undefined
+        };
+    }, [product]);
 
     // Memoized tabs configuration
     const tabs = useMemo(() => {
@@ -851,13 +881,14 @@ const ProductDetails = () => {
     return (
         <>
             <PopUpModal />
-            <Helmet>
-                <title>{String(product?.metaTitle || product?.name || 'Product') + ' - Prolific Healing Herbs'}</title>
-                <meta name="description" content={String(product?.metaDescription || product?.description || '')} />
-                {product?.keywords && Array.isArray(product.keywords) && product.keywords.length > 0 && (
-                    <meta name="keywords" content={product.keywords.filter(Boolean).join(', ')} />
-                )}
-            </Helmet>
+            <SEO 
+                title={product?.metaTitle || product?.name}
+                description={product?.metaDescription || product?.description}
+                keywords={product?.keywords}
+                image={product?.images?.[0]}
+                type="product"
+                schemaData={productSchema}
+            />
 
             <div className="bg-white">
                 {/* Breadcrumb */}

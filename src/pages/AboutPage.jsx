@@ -2,12 +2,18 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BsChevronLeft, BsGeoAlt, BsStar, BsHeartPulse } from 'react-icons/bs';
 import PopUpModal from '../components/common/PopUpModal';
+import SEO from '../components/common/SEO';
 
 const AboutPage = () => {
   const navigate = useNavigate();
 
   return (
     <>
+      <SEO 
+        title="About Us"
+        description="Learn about Prolific Healing Herbs, your trusted source for authentic Ayurvedic and herbal wellness products in Sanpada, Navi Mumbai."
+        keywords={['About Prolific Healing Herbs', 'Ayurvedic Store Navi Mumbai', 'Herbal Medicine Sanpada']}
+      />
       <PopUpModal />
 
       <div className="bg-white min-h-screen">

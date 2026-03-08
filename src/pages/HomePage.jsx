@@ -14,6 +14,7 @@ import PopUpModal from '../components/common/PopUpModal'
 import HairCare from '../components/products/HairCare'
 import DiabetiesCare from '../components/products/DiabetiesCare'
 import PainRelief from '../components/products/PainRelief'
+import SEO from '../components/common/SEO'
 
 const HomePage = () => {
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -29,6 +30,11 @@ const HomePage = () => {
 
   return (
     <div>
+      <SEO 
+        title="Prolific Healing Herbs | Authentic Ayurvedic Wellness"
+        description="Discover the power of natural healing with Prolific Healing Herbs. Trusted herbal & Ayurvedic wellness store in Navi Mumbai."
+        keywords={['Ayurveda', 'Herbal Medicine', 'Natural Wellness', 'Navi Mumbai', 'Healing Herbs']}
+      />
       <PopUpModal />
       <HeroSection />
       <CategoryCards onCategorySelect={handleCategorySelect} />

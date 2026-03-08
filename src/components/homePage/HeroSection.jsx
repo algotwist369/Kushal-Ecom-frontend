@@ -64,8 +64,9 @@ const HeroSection = () => {
               <img
                 src={slide.large_image}
                 alt={`Hero Slide ${index + 1}`}
-                className="w-full h-auto object-contain"
+                className={`w-full h-auto object-contain ${slide.product_url ? "cursor-pointer" : ""}`}
                 loading="lazy"
+                onClick={() => slide.product_url && navigate(slide.product_url)}
               />
             </picture>
           </div>

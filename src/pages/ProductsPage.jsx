@@ -4,6 +4,7 @@ import { BsCartPlus, BsFilter, BsX, BsChevronLeft, BsSearch } from "react-icons/
 import { FaStar } from "react-icons/fa";
 import api from "../api/axiosConfig";
 import PopUpModal from "../components/common/PopUpModal";
+import SEO from "../components/common/SEO";
 
 const ProductsPage = () => {
     const navigate = useNavigate();
@@ -289,6 +290,15 @@ const ProductsPage = () => {
 
     return (
         <>
+            <SEO 
+                title={selectedCategories.length === 1 && categories.length > 0
+                    ? `${categories.find(c => c._id === selectedCategories[0])?.metaTitle || categories.find(c => c._id === selectedCategories[0])?.name || 'Products'}`
+                    : 'All Herbal Products'}
+                description={selectedCategories.length === 1 && categories.length > 0
+                    ? categories.find(c => c._id === selectedCategories[0])?.metaDescription
+                    : 'Explore our wide range of authentic Ayurvedic and herbal products at Prolific Healing Herbs.'}
+                keywords={['Herbal Products', 'Ayurvedic Medicine', 'Natural Supplements']}
+            />
             <PopUpModal />
             <section className="py-8 bg-gray-50 min-h-screen">
                 <div className="max-w-[100rem] mx-auto px-4">

@@ -50,6 +50,7 @@ import AdminUsers from './pages/admin/userManagement/AdminUsers'
 import AdminCoupons from './pages/admin/couponManagement/AdminCoupons'
 import AdminCouponCreate from './pages/admin/couponManagement/AdminCouponCreate'
 import AdminCouponEdit from './pages/admin/couponManagement/AdminCouponEdit'
+import AdminCouponClaims from './pages/admin/couponManagement/AdminCouponClaims'
 
 // PopUp Management
 import AdminPopUps from './pages/admin/popupManagement/AdminPopUps'
@@ -72,6 +73,8 @@ import AdminNotifications from './pages/admin/notifications/AdminNotifications'
 
 // About & Contact Pages
 import AboutPage from './pages/AboutPage'
+import RefundPolicyPage from './pages/RefundPolicyPage'
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import ContactPage from './pages/ContactPage'
 
 // Component to redirect admins away from user pages
@@ -132,6 +135,8 @@ const App = () => {
           <Route path="/products/:productId" element={<AdminRedirect><ProductDetails /></AdminRedirect>} />
 
           <Route path="/about" element={<AdminRedirect><AboutPage /></AdminRedirect>} />
+          <Route path="/refund-policy" element={<AdminRedirect><RefundPolicyPage /></AdminRedirect>} />
+          <Route path="/privacy-policy" element={<AdminRedirect><PrivacyPolicyPage /></AdminRedirect>} />
           <Route path="/contact" element={<AdminRedirect><ContactPage /></AdminRedirect>} />
 
           {/* Cart & Checkout - Require Authentication (No Admin Access) */}
@@ -160,6 +165,7 @@ const App = () => {
           <Route path="/admin/categories/edit/:id" element={<ProtectedRoute adminOnly={true}><AdminCategoryEdit /></ProtectedRoute>} />
           <Route path="/admin/categories" element={<ProtectedRoute adminOnly={true}><AdminCategories /></ProtectedRoute>} />
           {/* Coupon routes - specific routes before general */}
+          <Route path="/admin/coupons/claims" element={<ProtectedRoute adminOnly={true}><AdminCouponClaims /></ProtectedRoute>} />
           <Route path="/admin/coupons/create" element={<ProtectedRoute adminOnly={true}><AdminCouponCreate /></ProtectedRoute>} />
           <Route path="/admin/coupons/edit/:id" element={<ProtectedRoute adminOnly={true}><AdminCouponEdit /></ProtectedRoute>} />
           <Route path="/admin/coupons" element={<ProtectedRoute adminOnly={true}><AdminCoupons /></ProtectedRoute>} />
