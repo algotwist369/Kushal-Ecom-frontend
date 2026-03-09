@@ -76,6 +76,7 @@ import AboutPage from './pages/AboutPage'
 import RefundPolicyPage from './pages/RefundPolicyPage'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import ContactPage from './pages/ContactPage'
+import NotFound from './pages/NotFound'
 
 // Component to redirect admins away from user pages
 const AdminRedirect = ({ children }) => {
@@ -120,7 +121,7 @@ const App = () => {
       <div className="min-h-screen bg-gray-50">
         <Routes>
           <Route path="/" element={<AdminRedirect><HomePage /></AdminRedirect>} />
-          <Route path="/:link" element={<AdminRedirect><HeroDetails /></AdminRedirect>} />
+          {/* <Route path="/:link" element={<AdminRedirect><HomePage /></AdminRedirect>} /> */}
 
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/login" element={<LoginPage />} />
@@ -183,6 +184,7 @@ const App = () => {
           {/* Notifications */}
           <Route path="/admin/notifications" element={<ProtectedRoute adminOnly={true}><AdminNotifications /></ProtectedRoute>} />
           <Route path="/admin/analytics" element={<ProtectedRoute adminOnly={true}><AdminAnalytics /></ProtectedRoute>} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
       <Footer />

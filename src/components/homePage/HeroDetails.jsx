@@ -8,7 +8,7 @@ const HeroDetails = () => {
             {/* You can add more sections below hero if needed */}
             <div className="max-w-[100rem] mx-auto py-16 px-4">
                 <h2 className="text-2xl md:text-3xl font-semibold text-gray-800 mb-6">
-                    Welcome to Our Spa
+                    Welcome to prolific
                 </h2>
                 <p className="text-gray-600 text-lg md:text-xl">
                     Explore our wide range of spa treatments and holistic wellness
